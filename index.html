@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Devil's Due — a rage-bait platformer</title>
+<meta name="description" content="It only looks easy. Invisible traps, a floor that moves, a screen that drags you forward, and a pit that closes in. Die, memorize, beat it."/>
+<style>
+  :root{--bg:#08060a;--ink:#ece4df;--mut:#9aa0b0;--crim:#ff5d6c}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:radial-gradient(820px 520px at 50% -8%,rgba(255,77,106,.12),transparent 60%),var(--bg);
+    color:var(--ink);font-family:system-ui,sans-serif;min-height:100%}
+  .wrap{max-width:780px;margin:0 auto;padding:54px 22px 80px;text-align:center}
+  .kick{letter-spacing:5px;font-size:12px;text-transform:uppercase;color:var(--crim)}
+  h1{font-size:clamp(40px,9vw,72px);margin:.1em 0 .1em;line-height:1.0;
+    background:linear-gradient(180deg,#fff,#ffcf5c 58%,#ff5a2d);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--mut);max-width:580px;margin:8px auto 0;line-height:1.6;font-size:16px}
+  .play{display:inline-block;margin-top:30px;padding:18px 46px;border-radius:14px;text-decoration:none;font-weight:800;
+    font-size:21px;letter-spacing:1px;color:#180207;background:linear-gradient(180deg,#ffd14d,#ff7a18);
+    box-shadow:0 14px 40px rgba(255,90,30,.35);transition:.16s}
+  .play:hover{transform:translateY(-3px);box-shadow:0 20px 52px rgba(255,90,30,.5)}
+  .play small{display:block;font-weight:600;font-size:12px;letter-spacing:2px;opacity:.8;margin-top:3px}
+  .grid{margin:46px auto 0;max-width:660px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;text-align:left}
+  .card{background:linear-gradient(180deg,#130d14,#0a070c);border:1px solid #271a22;border-radius:14px;padding:16px 18px}
+  .card h3{margin:0 0 6px;font-size:15px;color:#ffcf5c}.card p{margin:0;color:var(--mut);font-size:13.5px;line-height:1.55}
+  .how{margin:40px auto 0;max-width:580px;text-align:left;background:linear-gradient(180deg,#130d14,#0a070c);
+    border:1px solid #271a22;border-radius:14px;padding:20px 24px}
+  .how b{color:var(--crim)} .how p{color:var(--mut);line-height:1.6;margin:8px 0;font-size:14.5px}.how .warn{color:#ffcf5c}
+  .foot{margin-top:34px;font-size:12px;color:#6a7080}
+  .foot a{color:#9aa0b0;text-decoration:none;border-bottom:1px dotted #3a3340}.foot a:hover{color:var(--crim)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="kick">a rage-bait platformer · sequel to Devil's Lie</div>
+  <h1>Devil's Due</h1>
+  <p class="sub">It only looks easy. A calm little walk to a glowing door — and you'll die five times before you reach it, never seeing what did it. Then you'll memorize every lie and walk through like you own the place.</p>
+  <a class="play" href="play.html">PLAY<small>5 levels · it gets worse 😈</small></a>
+
+  <div class="grid">
+    <div class="card"><h3>The Long Walk</h3><p>Flat, empty, harmless. Invisible spikes, vanishing floor, and a doorstep that bites.</p></div>
+    <div class="card"><h3>The Floor Moves</h3><p>The ground itself turns on you — conveyors slide you into pits, friendly steps erupt.</p></div>
+    <div class="card"><h3>The Screen Moves</h3><p>The camera drags you forward into a kill-wall. No stopping, no studying. Memory only.</p></div>
+    <div class="card"><h3>The Pit Closes</h3><p>A lake of lava climbs from below. Race up the staircase — two of the stones are lies.</p></div>
+    <div class="card"><h3>Two Doors</h3><p>The obvious door is a lie. The real one runs — into the cannon fire.</p></div>
+    <div class="card"><h3>…and more</h3><p>Fly spikes, crumbling ledges, bait blocks, runaway doors. Hundreds of combinations, one promise: no tells.</p></div>
+  </div>
+
+  <div class="how">
+    <p><b>The deal.</b> Every trap is <b>invisible</b> until it's already killing you. You <span class="warn">cannot</span> dodge it the first time — that's the point. You die, you learn the spot, you go again.</p>
+    <p>The whole gauntlet is <b>identical every run</b>. It's not random and it's not unfair — it's a memory test wearing a smile. Beat it by remembering, not by reflexes you don't have yet.</p>
+    <p style="color:#7a8090;font-size:13px;margin-top:14px">← → move · space jump · R restart · no tells, no mercy, no second chances you didn't earn.</p>
+  </div>
+
+  <div class="foot">Built as a sequel to <a href="https://trpper11.github.io/devils-lie/">Devil's Lie</a>. Vanilla JS + Canvas, no dependencies.</div>
+</div>
+</body></html>
