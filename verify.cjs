@@ -27,11 +27,13 @@ window.__memory = function(level){ return new Promise(resolve=>{
   Due.goto(level); const T=Due.TILE,PW=Due.PW,PH=Due.PH,lv=LEVELS[level];
   let prow=-1; lv.grid.forEach((row,r)=>{ if(row.includes('S')) prow=r; }); const frow=prow+1;
   const jset=new Set(), add=c=>jset.add(c-1);
-  const fr=lv.grid[frow]||"";
-  for(let c=0;c<fr.length;c++){ const ch=fr[c];
-    if(ch==='v'||ch==='B') add(c);                          // jump fully over vanish/bait tiles
-    if(ch===' '&&fr[c-1]&&fr[c-1]!==' '&&fr[c-1]!=='S') add(c); // jump real gaps
-    // crumble 'c' runs: do NOT jump — a moving player crosses each tile before it breaks
+  if(!lv.manual){                                            // flat levels: auto-scan the start floor row
+    const fr=lv.grid[frow]||"";
+    for(let c=0;c<fr.length;c++){ const ch=fr[c];
+      if(ch==='v'||ch==='B') add(c);                          // jump fully over vanish/bait tiles
+      if(ch===' '&&fr[c-1]&&fr[c-1]!==' '&&fr[c-1]!=='S') add(c); // jump real gaps
+      // crumble 'c' runs: do NOT jump — a moving player crosses each tile before it breaks
+    }
   }
   (lv.traps||[]).forEach(t=>{ if(['popspike','doorspike','risefloor','drop'].includes(t.do)) add(t.c); });
   (lv.fakeDoors||[]).forEach(d=>add(d.c));                   // jump over the lethal decoy doors

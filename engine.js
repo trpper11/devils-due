@@ -7,7 +7,8 @@
 
    Reads window.LEVELS (see levels.js). No external deps. ~120Hz fixed step + render interpolation. */
 (function () {
-  const TILE = 40, VIEW_C = 28, VIEW_R = 12, VW = VIEW_C * TILE, VH = VIEW_R * TILE; // zoomed out: more scene ahead
+  const TILE = 40, BASE_ACROSS = 26;            // tiles across at zoom 1; the view adapts to window + user zoom
+  let VW = BASE_ACROSS * TILE, VH = 480, cssW = 800, cssH = 480, userZoom = 0.92; // VW/VH = visible WORLD px
   const GRAVITY = 2400, MOVE = 250, JUMP = 700, ACCEL = 3300, AIR = 2400, FRICTION = 2600, MAX_FALL = 980;
   const COYOTE = 0.10, JBUF = 0.12, DT = 1 / 120, PW = 24, PH = 26;
 
@@ -39,16 +40,18 @@
   const sBoom = () => { beep(90, 0.18, "sawtooth", 0.13, 40); beep(150, 0.1, "square", 0.08, 60); };
   const sFire = () => beep(330, 0.08, "square", 0.05, 110);
 
-  // ---------- canvas ----------
+  // ---------- canvas (fills the window; zoom + window aspect decide how much world shows) ----------
   function resize() {
-    const availW = innerWidth, availH = innerHeight, scale = Math.min(availW / VW, availH / VH);
-    const cssW = Math.max(1, Math.floor(VW * scale)), cssH = Math.max(1, Math.floor(VH * scale));
+    cssW = Math.max(300, innerWidth | 0); cssH = Math.max(220, innerHeight | 0);
     canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
-    const dpr = Math.min(2, devicePixelRatio || 1);
-    let cw = Math.floor(cssW * dpr), ch = Math.floor(cssH * dpr), MAX = 2300000;
-    if (cw * ch > MAX) { const k = Math.sqrt(MAX / (cw * ch)); cw = Math.floor(cw * k); ch = Math.floor(ch * k); }
-    canvas.width = cw; canvas.height = ch; renderScale = cw / VW;
+    const ppw = (cssW / (BASE_ACROSS * TILE)) * userZoom;   // CSS px per world px
+    VW = cssW / ppw; VH = cssH / ppw;                        // visible world size (world px)
+    let dpr = Math.min(2, devicePixelRatio || 1), MAX = 4000000; // generous cap → crisp vectors, still smooth
+    let cw = Math.round(cssW * dpr), ch = Math.round(cssH * dpr);
+    if (cw * ch > MAX) { dpr *= Math.sqrt(MAX / (cw * ch)); cw = Math.round(cssW * dpr); ch = Math.round(cssH * dpr); }
+    canvas.width = cw; canvas.height = ch; renderScale = ppw * dpr; // world px -> backing px
   }
+  function setZoom(z) { userZoom = clamp(z, 0.5, 2.4); try { localStorage.setItem("dd_zoom", userZoom); } catch (e) {} resize(); }
 
   // ---------- level load ----------
   function loadLevel(i) {
@@ -99,8 +102,8 @@
     if (sysClose) { sysClose.on = false; sysClose.l = 0; sysClose.r = 0; }
     if (LV._homeExit) exitCell = { ...LV._homeExit };
     camForcedX = 0;
-    camX = clamp(player.x + PW / 2 - VW / 2, 0, Math.max(0, WC * TILE - VW));
-    camY = clamp(player.y + PH / 2 - VH / 2, 0, Math.max(0, WR * TILE - VH));
+    camX = camClamp(player.x + PW / 2 - VW / 2, WC * TILE, VW);
+    camY = camClamp(player.y + PH / 2 - VH / 2, WR * TILE, VH);
     particles = []; levelTime = 0; state = "play";
   }
   function die() {
@@ -290,7 +293,7 @@
   function updateSystems(dt) {
     const p = px();
     if (sysScroll) { if (!sysScroll.on && p >= (sysScroll.at || 0)) sysScroll.on = true;
-      if (sysScroll.on) camForcedX = Math.min(WC * TILE - VW, camForcedX + (sysScroll.speed || 70) * dt); }
+      if (sysScroll.on) camForcedX = Math.min(Math.max(0, WC * TILE - VW), camForcedX + (sysScroll.speed || 70) * dt); }
     if (sysRise) { if (!sysRise.on && (p >= (sysRise.at || 0) || levelTime >= (sysRise.atTime ?? 1e9))) sysRise.on = true;
       if (sysRise.on) sysRise.h = Math.min((sysRise.max || WR) * TILE, sysRise.h + (sysRise.speed || 26) * dt); }
     if (sysClose) { if (!sysClose.on && p >= (sysClose.at || 0)) sysClose.on = true;
@@ -330,11 +333,13 @@
   const dropY = (t) => Math.min((t.floorR != null ? t.floorR : 9) * TILE, t.r * TILE + 1700 * t.t);
 
   // ---------- camera ----------
+  // clamp to world; if the world is smaller than the view on an axis, centre it (no empty drift)
+  function camClamp(t, worldPx, view) { const m = worldPx - view; return m <= 0 ? m / 2 : clamp(t, 0, m); }
   function updateCamera(dt) {
     let tx, ty;
     if (sysScroll && sysScroll.on) tx = camForcedX;
-    else tx = clamp(player.x + PW / 2 - VW / 2, 0, Math.max(0, WC * TILE - VW));
-    ty = clamp(player.y + PH / 2 - VH / 2, 0, Math.max(0, WR * TILE - VH));
+    else tx = camClamp(player.x + PW / 2 - VW / 2, WC * TILE, VW);
+    ty = camClamp(player.y + PH / 2 - VH / 2, WR * TILE, VH);
     const k = 1 - Math.pow(0.0001, dt);
     camX += (tx - camX) * (sysScroll && sysScroll.on ? 1 : k);
     camY += (ty - camY) * k;
@@ -497,7 +502,16 @@
     else if (k === "arrowright" || k === "d") { keys.right = true; e.preventDefault(); }
     else if (k === "arrowup" || k === "w" || k === " ") { if (state === "play" && !player.dead && !e.repeat) { player.jumpBuf = JBUF; keys.jump = true; } e.preventDefault(); }
     else if (k === "r") { deaths = 0; setHud(); loadLevel(state === "win" ? 0 : li); }
+    else if (k === "=" || k === "+") { setZoom(userZoom * 1.12); e.preventDefault(); }   // zoom in
+    else if (k === "-" || k === "_") { setZoom(userZoom / 1.12); e.preventDefault(); }   // zoom out
+    else if (k === "0") { setZoom(0.92); e.preventDefault(); }                            // reset zoom
   });
+  addEventListener("wheel", e => { setZoom(userZoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: true });
+  let pinchD = 0;
+  addEventListener("touchmove", e => { if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY, d = Math.hypot(dx, dy);
+    if (pinchD) setZoom(userZoom * (d / pinchD)); pinchD = d; e.preventDefault(); } }, { passive: false });
+  addEventListener("touchend", () => { pinchD = 0; });
   addEventListener("keyup", e => { const k = e.key.toLowerCase();
     if (k === "arrowleft" || k === "a") keys.left = false; else if (k === "arrowright" || k === "d") keys.right = false;
     else if (k === "arrowup" || k === "w" || k === " ") keys.jump = false; });
@@ -514,10 +528,14 @@
     TILE, PW, PH,
     init() {
       canvas = document.getElementById("game"); ctx = canvas.getContext("2d");
+      try { const z = parseFloat(localStorage.getItem("dd_zoom")); if (z) userZoom = clamp(z, 0.5, 2.4); } catch (e) {}
       resize(); loadLevel(0);
       addEventListener("pointerdown", () => A() && A().resume && A().resume());
       bindTouch("t-l", v => keys.left = v); bindTouch("t-r", v => keys.right = v);
       bindTouch("t-j", v => { if (v && state === "play" && !player.dead) { player.jumpBuf = JBUF; keys.jump = true; } else keys.jump = false; });
+      const zi = document.getElementById("z-in"), zo = document.getElementById("z-out");
+      if (zi) zi.onclick = () => setZoom(userZoom * 1.15);
+      if (zo) zo.onclick = () => setZoom(userZoom / 1.15);
       requestAnimationFrame(frame);
     },
     get player() { return player; }, get state() { return state; }, get level() { return li; }, get deaths() { return deaths; },
@@ -527,6 +545,7 @@
     projectiles() { const a = []; for (const f of flyers) a.push({ x: f.x, y: f.y, w: f.w, h: f.h, vx: f.vx });
       for (const z of cannons) for (const s of z.shots) a.push({ x: s.x - s.r, y: s.y - s.r, w: s.r * 2, h: s.r * 2, vx: s.vx }); return a; },
     goto(i) { deaths = 0; loadLevel(i); },
+    setZoom(z) { setZoom(z); }, get zoom() { return userZoom; },
     press(k, v) { if (k === "left") keys.left = v; else if (k === "right") keys.right = v; else if (k === "jump") { if (v) { player.jumpBuf = JBUF; keys.jump = true; } else keys.jump = false; } },
   };
   window.Due = Due;

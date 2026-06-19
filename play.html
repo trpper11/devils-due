@@ -4,25 +4,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>Devil's Due — it only looks easy</title>
 <style>
-  html,body{margin:0;height:100%;background:#05040a;color:#cdd3df;font-family:system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden;touch-action:none}
-  .bar{display:flex;gap:16px;align-items:center;font-size:13px;letter-spacing:.5px}
-  .bar .nm{color:#ff5d6c;font-weight:700;letter-spacing:1px}
-  .bar .s{color:#8a90a0}
-  canvas{image-rendering:auto;border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.7);background:#05040a;display:block;max-width:100vw}
-  .hint{font-size:12px;color:#6a7080}.hint b{color:#aab0c0}
-  a.back{position:fixed;left:14px;top:12px;font-size:12px;color:#6a7080;text-decoration:none;z-index:5}a.back:hover{color:#ff5d6c}
-  .touch{position:fixed;bottom:14px;left:0;right:0;display:none;justify-content:space-between;padding:0 16px;pointer-events:none}
-  .touch button{pointer-events:auto;width:74px;height:74px;border-radius:50%;border:1px solid #3a2350;background:rgba(40,20,40,.6);
-    color:#ffcf5c;font-size:26px;font-weight:800;-webkit-tap-highlight-color:transparent}
-  .touch .rt{display:flex;gap:12px}
+  html,body{margin:0;height:100%;background:#05040a;color:#cdd3df;font-family:system-ui,sans-serif;overflow:hidden;touch-action:none}
+  #game{position:fixed;inset:0;width:100vw;height:100vh;display:block;background:#05040a}
+  .bar{position:fixed;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:16px;align-items:center;
+    font-size:13px;letter-spacing:.5px;background:rgba(8,6,12,.55);padding:6px 14px;border-radius:10px;backdrop-filter:blur(4px);z-index:5}
+  .bar .nm{color:#ff5d6c;font-weight:700;letter-spacing:1px}.bar .s{color:#9aa0b0}
+  a.back{position:fixed;left:12px;top:12px;font-size:13px;color:#8a90a0;text-decoration:none;z-index:6;
+    background:rgba(8,6,12,.55);padding:6px 10px;border-radius:8px}a.back:hover{color:#ff5d6c}
+  .hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:#6a7080;z-index:5;text-align:center;
+    background:rgba(8,6,12,.5);padding:5px 12px;border-radius:8px}.hint b{color:#aab0c0}
+  .zoom{position:fixed;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:6}
+  .zoom button{width:42px;height:42px;border-radius:10px;border:1px solid #3a2350;background:rgba(40,20,40,.7);
+    color:#ffcf5c;font-size:22px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .zoom button:hover{background:rgba(70,35,70,.8)}
+  .touch{position:fixed;bottom:18px;left:0;right:0;display:none;justify-content:space-between;padding:0 18px;pointer-events:none;z-index:6}
+  .touch button{pointer-events:auto;width:78px;height:78px;border-radius:50%;border:1px solid #3a2350;background:rgba(40,20,40,.55);
+    color:#ffcf5c;font-size:28px;font-weight:800;-webkit-tap-highlight-color:transparent}
+  .touch .rt{display:flex;gap:14px}
   @media (pointer:coarse){.touch{display:flex}}
 </style></head>
 <body>
+  <canvas id="game"></canvas>
   <a class="back" href="index.html">‹ back</a>
   <div class="bar"><span class="nm" id="hud-name">DEVIL'S DUE</span><span class="s" id="hud-l">LEVEL 1/5</span><span class="s" id="hud-d">DEATHS 0</span></div>
-  <canvas id="game" width="1120" height="480"></canvas>
-  <div class="hint"><b>← → / A D</b> move · <b>Space / ↑ / W</b> jump · <b>R</b> restart · <i>it only looks easy</i></div>
+  <div class="zoom"><button id="z-in" tabindex="-1" title="zoom in (+ / scroll)">+</button><button id="z-out" tabindex="-1" title="zoom out (− / scroll)">−</button></div>
+  <div class="hint"><b>← → / A D</b> move · <b>Space / ↑</b> jump · <b>R</b> restart · <b>+ − / scroll / pinch</b> zoom · <i>it only looks easy</i></div>
   <div class="touch">
     <button id="t-l" tabindex="-1">‹</button>
     <div class="rt"><button id="t-j" tabindex="-1">▲</button><button id="t-r" tabindex="-1">›</button></div>
