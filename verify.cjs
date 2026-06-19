@@ -6,7 +6,7 @@
 const http = require("http"), fs = require("fs"), path = require("path");
 const { chromium } = require("/root/.npm/_npx/705bc6b22212b352/node_modules/playwright");
 
-const ROOT = __dirname, PORT = 8731;
+const ROOT = __dirname, PORT = Number(process.env.PORT || 8731);
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]); if (p === "/") p = "/play.html";
