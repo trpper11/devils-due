@@ -200,11 +200,12 @@
     if (player.onGround) onStandTiles(dt);
     player.run += Math.abs(player.vx) * dt * 0.05;   // (footstep blip removed — it buzzed)
 
-    // forced-scroll wall: can't fall behind the left edge
+    // forced-scroll: confined to the moving screen. The trailing (left) edge is LETHAL; the leading (right)
+    // edge is a solid wall you can't run past. Keep pace with the camera or the spikes take you.
     if (sysScroll && sysScroll.on) {
-      const wall = camForcedX + 2;
-      if (player.x < wall) { player.x = wall; if (player.vx < 0) player.vx = 0; }
-      if (player.x + PW < camForcedX) return die();         // shoved off the left → crushed
+      if (player.x <= camForcedX + 4) return die();
+      const rt = camForcedX + VW - PW - 6;
+      if (player.x > rt) { player.x = rt; if (player.vx > 0) player.vx = 0; }
     }
 
     updateCamera(dt);
@@ -292,7 +293,7 @@
   // ---------- world systems ----------
   function updateSystems(dt) {
     const p = px();
-    if (sysScroll) { if (!sysScroll.on && p >= (sysScroll.at || 0)) sysScroll.on = true;
+    if (sysScroll) { if (!sysScroll.on && p >= (sysScroll.at || 0)) { sysScroll.on = true; camForcedX = camX; } // start the kill-wall where the camera is now
       if (sysScroll.on) camForcedX = Math.min(Math.max(0, WC * TILE - VW), camForcedX + (sysScroll.speed || 70) * dt); }
     if (sysRise) { if (!sysRise.on && (p >= (sysRise.at || 0) || levelTime >= (sysRise.atTime ?? 1e9))) sysRise.on = true;
       if (sysRise.on) sysRise.h = Math.min((sysRise.max || WR) * TILE, sysRise.h + (sysRise.speed || 26) * dt); }
@@ -443,6 +444,15 @@
         ctx.fillStyle = "rgba(255,200,80,.5)"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 3, 0, 7); ctx.fill(); } }
   }
   function drawSystems() {
+    if (sysScroll && sysScroll.on) {                 // the trailing edge is death — draw a wall of red spikes
+      const wx = camForcedX;
+      const g = ctx.createLinearGradient(wx, 0, wx + 80, 0);
+      g.addColorStop(0, "rgba(255,28,52,0.92)"); g.addColorStop(1, "rgba(255,28,52,0)");
+      ctx.fillStyle = g; ctx.fillRect(wx - 40, camY - 60, 120, VH + 120);
+      ctx.fillStyle = "#ff5066";
+      for (let yy = Math.floor(camY / 26) * 26 - 26; yy < camY + VH + 40; yy += 26) {
+        ctx.beginPath(); ctx.moveTo(wx, yy); ctx.lineTo(wx + 17, yy + 13); ctx.lineTo(wx, yy + 26); ctx.closePath(); ctx.fill(); }
+    }
     if (sysRise && sysRise.on) { const top = WR * TILE - sysRise.h;
       const g = ctx.createLinearGradient(0, top, 0, top + 60); g.addColorStop(0, "#ff6a2c"); g.addColorStop(1, "#b01010");
       ctx.fillStyle = g; ctx.fillRect(camX - 40, top, VW + 80, sysRise.h + 40);
@@ -494,17 +504,32 @@
   }
 
   // ---------- input ----------
+  // Map an event to an action using BOTH e.key (layout char) AND e.code (physical key). e.code makes WASD
+  // work on AZERTY / non-QWERTY layouts and consistently across Chrome/Opera/Firefox/Safari (where e.key
+  // for the physical W/A/S/D keys can differ). This was the Opera "WASD doesn't work" bug.
+  function action(e) {
+    const k = (e.key || "").toLowerCase(), c = e.code || "";
+    if (k === "arrowleft" || k === "a" || c === "ArrowLeft" || c === "KeyA") return "left";
+    if (k === "arrowright" || k === "d" || c === "ArrowRight" || c === "KeyD") return "right";
+    if (k === "arrowup" || k === "w" || k === " " || k === "spacebar" || c === "ArrowUp" || c === "KeyW" || c === "Space") return "jump";
+    if (k === "r" || c === "KeyR") return "restart";
+    if (k === "=" || k === "+" || c === "Equal" || c === "NumpadAdd") return "zoomin";
+    if (k === "-" || k === "_" || c === "Minus" || c === "NumpadSubtract") return "zoomout";
+    if (k === "0" || c === "Digit0" || c === "Numpad0") return "zoomreset";
+    if (k === "tab" || k === "enter" || c === "Tab" || c === "Enter") return "swallow";
+    return null;
+  }
   addEventListener("keydown", e => {
-    const k = e.key.toLowerCase();
     if (document.activeElement && document.activeElement.tagName === "BUTTON") document.activeElement.blur();
-    if (k === "tab" || k === "enter") { e.preventDefault(); return; }
-    if (k === "arrowleft" || k === "a") { keys.left = true; e.preventDefault(); }
-    else if (k === "arrowright" || k === "d") { keys.right = true; e.preventDefault(); }
-    else if (k === "arrowup" || k === "w" || k === " ") { if (state === "play" && !player.dead && !e.repeat) { player.jumpBuf = JBUF; keys.jump = true; } e.preventDefault(); }
-    else if (k === "r") { deaths = 0; setHud(); loadLevel(state === "win" ? 0 : li); }
-    else if (k === "=" || k === "+") { setZoom(userZoom * 1.12); e.preventDefault(); }   // zoom in
-    else if (k === "-" || k === "_") { setZoom(userZoom / 1.12); e.preventDefault(); }   // zoom out
-    else if (k === "0") { setZoom(0.92); e.preventDefault(); }                            // reset zoom
+    const a = action(e); if (!a) return;
+    if (a === "left") keys.left = true;
+    else if (a === "right") keys.right = true;
+    else if (a === "jump") { if (state === "play" && !player.dead && !e.repeat) { player.jumpBuf = JBUF; keys.jump = true; } }
+    else if (a === "restart") { deaths = 0; setHud(); loadLevel(state === "win" ? 0 : li); }
+    else if (a === "zoomin") setZoom(userZoom * 1.12);
+    else if (a === "zoomout") setZoom(userZoom / 1.12);
+    else if (a === "zoomreset") setZoom(0.92);
+    e.preventDefault();
   });
   addEventListener("wheel", e => { setZoom(userZoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: true });
   let pinchD = 0;
@@ -512,9 +537,8 @@
     const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY, d = Math.hypot(dx, dy);
     if (pinchD) setZoom(userZoom * (d / pinchD)); pinchD = d; e.preventDefault(); } }, { passive: false });
   addEventListener("touchend", () => { pinchD = 0; });
-  addEventListener("keyup", e => { const k = e.key.toLowerCase();
-    if (k === "arrowleft" || k === "a") keys.left = false; else if (k === "arrowright" || k === "d") keys.right = false;
-    else if (k === "arrowup" || k === "w" || k === " ") keys.jump = false; });
+  addEventListener("keyup", e => { const a = action(e);
+    if (a === "left") keys.left = false; else if (a === "right") keys.right = false; else if (a === "jump") keys.jump = false; });
   addEventListener("blur", () => { keys.left = keys.right = keys.jump = false; });
   addEventListener("resize", resize);
 

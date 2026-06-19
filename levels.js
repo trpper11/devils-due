@@ -93,7 +93,7 @@
     return {
       name: "THE SCREEN MOVES", bg: ["#0c0a16", "#05040a"], block: "#2f2a55", manual: true,
       grid: S(g),
-      scroll: { at: 3.5, speed: 86 },
+      scroll: { at: 3.5, speed: 150 },                   // brisk — the kill-wall makes you actually run
       jumpCols: [11, 29, 51],                            // v, hop onto the bridge, last v (then walk off the bridge)
       traps: [
         { do: "popspike", c: 8, r: 15, at: 7.0 },
