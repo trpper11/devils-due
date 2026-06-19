@@ -16,51 +16,54 @@ const server = http.createServer((req, res) => {
 });
 
 const BOT = `
-window.__naive = function(level){ return new Promise(resolve=>{
-  Due.goto(level); const T=Due.TILE,PW=Due.PW; Due.press('right',true);
-  let ticks=0; const iv=setInterval(()=>{ const p=Due.player; ticks++;
-    if(Due.level!==level||Due.state==='win'){ clearInterval(iv); Due.press('right',false); resolve({reached:true,deaths:Due.deaths}); return; }
-    if(ticks>250){ clearInterval(iv); Due.press('right',false); resolve({reached:false,deaths:Due.deaths,x:Math.round(p.x/T)}); }
-  },16);
-});};
-window.__memory = function(level){ return new Promise(resolve=>{
-  Due.goto(level); const T=Due.TILE,PW=Due.PW,PH=Due.PH,lv=LEVELS[level];
+// DETERMINISTIC verifier: drives physics synchronously via Due.tick() (no real-time timers / render),
+// so results are reproducible and fast regardless of headless render load. 1 iter = Due.tick(2) = 1/60s.
+window.__resetKeys = function(){ Due.press('left',false); Due.press('right',false); Due.press('jump',false); };
+window.__naive = function(level){
+  Due.setHeadless(true); __resetKeys(); Due.goto(level); const T=Due.TILE,PW=Due.PW; Due.press('right',true);
+  for(let it=0; it<1000; it++){
+    if(Due.level!==level||Due.state==='won-anim'||Due.state==='win'){ Due.press('right',false); return {reached:true,deaths:Due.deaths}; }
+    Due.tick(2);
+  }
+  const p=Due.player; Due.press('right',false);
+  return {reached:false,deaths:Due.deaths,x:Math.round((p.x+PW/2)/T)};
+};
+window.__memory = function(level){
+  Due.setHeadless(true); __resetKeys(); Due.goto(level);
+  const T=Due.TILE,PW=Due.PW,PH=Due.PH,lv=LEVELS[level];
   let prow=-1; lv.grid.forEach((row,r)=>{ if(row.includes('S')) prow=r; }); const frow=prow+1;
   const jset=new Set(), add=c=>jset.add(c-1);
-  if(!lv.manual){                                            // flat levels: auto-scan the start floor row
-    const fr=lv.grid[frow]||"";
+  if(!lv.manual){ const fr=lv.grid[frow]||"";
     for(let c=0;c<fr.length;c++){ const ch=fr[c];
-      if(ch==='v'||ch==='B') add(c);                          // jump fully over vanish/bait tiles
-      if(ch===' '&&fr[c-1]&&fr[c-1]!==' '&&fr[c-1]!=='S') add(c); // jump real gaps
-      // crumble 'c' runs: do NOT jump — a moving player crosses each tile before it breaks
-    }
-  }
+      if(ch==='v'||ch==='B') add(c);
+      if(ch===' '&&fr[c-1]&&fr[c-1]!==' '&&fr[c-1]!=='S') add(c); } }
   (lv.traps||[]).forEach(t=>{ if(['popspike','doorspike','risefloor','drop'].includes(t.do)) add(t.c); });
-  (lv.fakeDoors||[]).forEach(d=>add(d.c));                   // jump over the lethal decoy doors
-  (lv.jumpCols||[]).forEach(c=>jset.add(c));                 // explicit launch points (e.g. staircase climbs)
-  const hold=()=>{ Due.press('jump',true); setTimeout(()=>Due.press('jump',false),200); }; // full-height jump
-  const stop=()=>{ Due.press('right',false); Due.press('left',false); };
-  let ticks=0,lastX=-1,stuck=0,jcool=0,lastDeaths=0,dcols=[],maxc=0;
-  const iv=setInterval(()=>{ const p=Due.player; if(!p) return; ticks++;
+  (lv.fakeDoors||[]).forEach(d=>add(d.c));
+  (lv.jumpCols||[]).forEach(c=>jset.add(c));
+  let jhold=0, jcool=0, lastX=-1, stuck=0, lastDeaths=0, dcols=[], maxc=0;
+  for(let it=0; it<6000; it++){
+    const p=Due.player; if(!p) break;
     const pc=Math.floor((p.x+PW/2)/T); if(pc>maxc) maxc=pc;
     if(Due.deaths>lastDeaths){ lastDeaths=Due.deaths; dcols.push(pc); }
-    if(Due.level!==level||Due.state==='win'){ clearInterval(iv); stop(); resolve({ok:true,deaths:Due.deaths,jset:[...jset].sort((a,b)=>a-b)}); return; }
-    if(ticks>2200){ clearInterval(iv); stop(); resolve({ok:false,deaths:Due.deaths,maxc,deathCols:dcols.slice(-12),jset:[...jset].sort((a,b)=>a-b),reason:'timeout'}); return; }
-    if(jcool>0) jcool--;
-    // chase the door (it can run away behind you)
+    if(Due.level!==level||Due.state==='won-anim'||Due.state==='win'){ return {ok:true,deaths:Due.deaths,jset:[...jset].sort((a,b)=>a-b)}; }
     const ex=Due.exitPx(); const dir = !ex?1 : (ex.x>p.x+4?1 : (ex.x<p.x-4?-1:0));
     Due.press('right',dir>0); Due.press('left',dir<0);
-    // jump the memorized static traps (on the rightward leg)
-    if(dir>=0 && jset.has(pc)&&p.onGround&&jcool===0){ hold(); jcool=16; }
-    // dodge any incoming projectile (flyspikes, cannonballs) at body height
-    const pcx=p.x+PW/2, pcy=p.y+PH/2;
-    for(const q of (Due.projectiles?Due.projectiles():[])){ const qx=q.x+q.w/2, dx=qx-pcx;
-      const inc=(q.vx<0&&dx>0&&dx<150)||(q.vx>0&&dx<0&&dx>-150)||Math.abs(dx)<70;
-      if(inc && Math.abs((q.y+q.h/2)-pcy)<46 && p.onGround && jcool===0){ hold(); jcool=14; break; } }
-    if(Math.abs(p.x-lastX)<0.6) stuck++; else stuck=0; lastX=p.x;
-    if(stuck>26&&p.onGround){ hold(); stuck=0; }
-  },16);
-});};
+    if(jcool>0) jcool--;
+    if(p.onGround && jcool===0){
+      let want = (dir>=0 && jset.has(pc));
+      const pcx=p.x+PW/2, pcy=p.y+PH/2;
+      for(const q of (Due.projectiles?Due.projectiles():[])){ const qx=q.x+q.w/2, dx=qx-pcx;
+        if(((q.vx<0&&dx>0&&dx<150)||(q.vx>0&&dx<0&&dx>-150)||Math.abs(dx)<70) && Math.abs((q.y+q.h/2)-pcy)<46){ want=true; break; } }
+      if(Math.abs(p.x-lastX)<0.4) stuck++; else stuck=0;
+      if(stuck>22){ want=true; stuck=0; }
+      if(want){ jhold=12; jcool=18; }   // ~200ms full-height jump
+    }
+    lastX=p.x;
+    if(jhold>0){ Due.press('jump',true); jhold--; } else Due.press('jump',false);
+    Due.tick(2);
+  }
+  return {ok:false,deaths:Due.deaths,maxc,deathCols:dcols.slice(-12),jset:[...jset].sort((a,b)=>a-b),reason:'timeout'};
+};
 `;
 
 (async () => {
@@ -77,7 +80,7 @@ window.__memory = function(level){ return new Promise(resolve=>{
   console.log("levels:", nLevels, "| names:", await page.evaluate("LEVELS.map(l=>l.name)"));
 
   const only = process.argv[2] != null ? [Number(process.argv[2])] : null;
-  const flat = only || [0, 1, 2, 4];
+  const flat = only || Array.from({ length: 20 }, (_, i) => i);
   for (const lv of flat) {
     const name = await page.evaluate("LEVELS[" + lv + "].name");
     const naive = await page.evaluate("__naive(" + lv + ")");

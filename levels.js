@@ -242,8 +242,8 @@
     const st = stair(g, 28); pit(g, 37, 53); fill(g, 10, 37, 52, "#");
     put(g, 9, 51, "E");                                // real door at the far right of the deck
     return { name: "LIARS' ROW", bg: ["#0c0710", "#05040a"], block: "#45236a", manual: true, grid: S(g),
-      jumpCols: [11, ...st.launch, 45],
-      fakeDoors: [{ c: 24, r: 15 }, { c: 46, r: 9 }],   // a ground lie AND a deck lie guarding the real door
+      jumpCols: [11, ...st.launch],
+      fakeDoors: [{ c: 24, r: 15 }],                    // the obvious ground-floor lie
       cannons: [{ c: 44, r: 9, dir: -1, period: 2.2, speed: 270, phase: 0.0, life: 1.4 }], // rakes the deck approach
       traps: [
         { do: "popspike", c: 6, r: 15, at: 5 }, { do: "drop", c: 16, r: 11, at: 14, floorR: 15 },
@@ -356,7 +356,6 @@
     put(g, 9, 50, "E");                                 // door scoots FORWARD when you reach it
     return { name: "DOUBLE CROSS", bg: ["#0c0710", "#05040a"], block: "#45236a", manual: true, grid: S(g),
       jumpCols: [9, ...st.launch],
-      fakeDoors: [{ c: 45, r: 9 }],                      // a deck lie before the real (moving) door
       cannons: [{ c: 47, r: 9, dir: -1, period: 2.2, speed: 270, phase: 0.0, life: 1.4 }],
       traps: [
         { do: "popspike", c: 6, r: 15, at: 5 },
