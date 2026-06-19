@@ -7,7 +7,7 @@
 
    Reads window.LEVELS (see levels.js). No external deps. ~120Hz fixed step + render interpolation. */
 (function () {
-  const TILE = 40, VIEW_C = 20, VIEW_R = 12, VW = VIEW_C * TILE, VH = VIEW_R * TILE;
+  const TILE = 40, VIEW_C = 28, VIEW_R = 12, VW = VIEW_C * TILE, VH = VIEW_R * TILE; // zoomed out: more scene ahead
   const GRAVITY = 2400, MOVE = 250, JUMP = 700, ACCEL = 3300, AIR = 2400, FRICTION = 2600, MAX_FALL = 980;
   const COYOTE = 0.10, JBUF = 0.12, DT = 1 / 120, PW = 24, PH = 26;
 
@@ -195,8 +195,7 @@
 
     // on-ground tile effects: conveyors, crumble timers, bait, vanish
     if (player.onGround) onStandTiles(dt);
-    if (player.onGround && Math.abs(player.vx) > 60 && rnd() < 0.15) sStep();
-    player.run += Math.abs(player.vx) * dt * 0.05;
+    player.run += Math.abs(player.vx) * dt * 0.05;   // (footstep blip removed — it buzzed)
 
     // forced-scroll wall: can't fall behind the left edge
     if (sysScroll && sysScroll.on) {
@@ -281,7 +280,7 @@
       z.t += dt; const period = z.period || 1.6;
       if (z.t >= period) { z.t -= period; sFire();
         const dir = z.dir || -1, sp = z.speed || 320;
-        z.shots.push({ x: z.c * TILE + TILE / 2, y: z.r * TILE + TILE / 2, vx: dir * sp, vy: 0, life: z.life || 1.6, r: 7 }); }
+        z.shots.push({ x: z.c * TILE + TILE / 2 + dir * 18, y: z.r * TILE + TILE / 2, vx: dir * sp, vy: 0, life: z.life || 1.6, r: 7 }); }
       for (const s of z.shots) { s.x += s.vx * dt; s.life -= dt; }
       z.shots = z.shots.filter(s => s.life > 0);
     }

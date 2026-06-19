@@ -53,7 +53,7 @@ window.__memory = function(level){ return new Promise(resolve=>{
     // dodge any incoming projectile (flyspikes, cannonballs) at body height
     const pcx=p.x+PW/2, pcy=p.y+PH/2;
     for(const q of (Due.projectiles?Due.projectiles():[])){ const qx=q.x+q.w/2, dx=qx-pcx;
-      const inc=(q.vx<0&&dx>0&&dx<140)||(q.vx>0&&dx<0&&dx>-140);
+      const inc=(q.vx<0&&dx>0&&dx<150)||(q.vx>0&&dx<0&&dx>-150)||Math.abs(dx)<70;
       if(inc && Math.abs((q.y+q.h/2)-pcy)<46 && p.onGround && jcool===0){ hold(); jcool=14; break; } }
     if(Math.abs(p.x-lastX)<0.6) stuck++; else stuck=0; lastX=p.x;
     if(stuck>26&&p.onGround){ hold(); stuck=0; }

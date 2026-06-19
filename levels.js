@@ -31,14 +31,14 @@
     put(g, 9, 1, "S"); put(g, 9, W - 2, "E");
     put(g, 10, 9, "v");                  // invisible pit #1
     fill(g, 10, 24, 26, "c");            // crumbling stretch — don't dawdle
-    put(g, 10, 38, "v");                 // invisible pit #2, right before the door
     return {
       name: "THE LONG WALK", bg: ["#0c0710", "#05040a"], block: "#3a2350",
       grid: S(g),
+      fakeDoors: [{ c: 35, r: 9 }],                       // "oh, the exit!" — no. it's a lie. jump it or die on it.
       traps: [
         { do: "popspike", c: 5, r: 9, at: 4.0 },         // first blood, four steps in
-        { do: "drop", c: 14, r: 0, at: 12.0, floorR: 9 },// ceiling spike plants as a floor spike: jump it
-        { do: "popspike", c: 20, r: 9, at: 19.0 },
+        { do: "drop", c: 12, r: 0, at: 10.0, floorR: 9 },// ceiling spike plants as a floor spike: jump it
+        { do: "popspike", c: 18, r: 9, at: 17.0 },
         { do: "popspike", c: 30, r: 9, at: 29.0 },
         { do: "doorspike", c: W - 3, r: 9, at: W - 5 },  // the doorstep itself
       ],
@@ -67,7 +67,9 @@
       ],
       traps: [
         { do: "popspike", c: 6, r: 9, at: 5.0 },
+        { do: "popspike", c: 12, r: 9, at: 11.0 },       // erupts WHILE the conveyor shoves you over it
         { do: "risefloor", c: 33, r: 9, at: 31.5 },      // a spike erupts from flat ground after the gap
+        { do: "popspike", c: 40, r: 9, at: 39.0 },       // and again, mid-conveyor, as you're dragged back
         { do: "doorspike", c: W - 3, r: 9, at: W - 5 },
       ],
     };
@@ -92,6 +94,7 @@
         { do: "popspike", c: 8, r: 9, at: 7.0 },
         { do: "drop", c: 16, r: 0, at: 14.0, floorR: 9 },
         { do: "popspike", c: 26, r: 9, at: 25.0 },
+        { do: "drop", c: 34, r: 0, at: 32.0, floorR: 9 },
         { do: "drop", c: 44, r: 0, at: 42.0, floorR: 9 },
         { do: "popspike", c: 53, r: 9, at: 52.0 },
         { do: "doorspike", c: W - 3, r: 9, at: W - 5 },
@@ -104,9 +107,8 @@
   // closing in. The only way is UP: a staircase of ledges to a high exit. Two of the tempting stepping
   // stones are lies (one vanishes, one erupts). Climb clean and fast or be swallowed.
   function L4() {
-    const W = 24, H = 16, g = G(W, H);
+    const W = 28, H = 16, g = G(W, H);
     fill(g, 15, 0, W - 1, "#");                 // base (becomes lava floor)
-    fill(g, 0, 0, 0, "#"); fill(g, 0, W - 1, W - 1, "#");
     for (let r = 0; r < H; r++) { put(g, r, 0, "#"); put(g, r, W - 1, "#"); } // shaft walls
     fill(g, 14, 1, 4, "#"); put(g, 13, 2, "S"); // start ledge
     fill(g, 12, 5, 8, "#");                     // P1
@@ -119,7 +121,7 @@
     return {
       name: "THE PIT CLOSES", bg: ["#140709", "#05040a"], block: "#4a1f1f",
       grid: S(g),
-      rise: { at: 99, atTime: 0.8, speed: 24, max: 15 }, // lava climbs from the bottom
+      rise: { at: 99, atTime: 0.8, speed: 27, max: 15 }, // lava climbs from the bottom
       jumpCols: [4, 8, 12, 16],                  // launch points of the safe staircase (for the verifier)
       traps: [],
     };
@@ -138,15 +140,14 @@
     return {
       name: "TWO DOORS", bg: ["#0c0710", "#05040a"], block: "#45236a",
       grid: S(g),
-      fakeDoors: [{ c: 27, r: 9 }],               // the obvious, central, lethal lie
+      fakeDoors: [{ c: 10, r: 9 }, { c: 27, r: 9 }], // an early decoy AND the obvious central one — both lethal
       cannons: [
-        { c: 40, r: 9, dir: -1, period: 1.6, speed: 300, phase: 0.0, life: 1.5 },
-        { c: 48, r: 9, dir: -1, period: 1.8, speed: 320, phase: 0.9, life: 1.4 },
+        { c: 44, r: 9, dir: -1, period: 2.2, speed: 280, phase: 0.0, life: 1.4 }, // one cannon guarding the door-chase
       ],
       traps: [
         { do: "popspike", c: 6, r: 9, at: 5.0 },
         { do: "drop", c: 18, r: 0, at: 16.0, floorR: 9 },
-        { do: "flyspike", r: 9, at: 36.0, fromRight: true, speed: 500 }, // a spike screams across the cannon gallery
+        { do: "flyspike", r: 9, at: 28.0, fromRight: true, speed: 500 }, // a spike screams across before the gallery
         { do: "runaway", to: { c: 36, r: 9 }, at: W - 5 }, // reach for the real door and it bolts back behind you
         { do: "doorspike", c: 35, r: 9, at: 36.5 },        // ...onto a fresh doorstep spike
       ],
