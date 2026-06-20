@@ -14,26 +14,211 @@
   .hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:#6a7080;z-index:5;text-align:center;
     background:rgba(8,6,12,.5);padding:5px 12px;border-radius:8px}.hint b{color:#aab0c0}
   .zoom{position:fixed;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:6}
-  .zoom button{width:42px;height:42px;border-radius:10px;border:1px solid #3a2350;background:rgba(40,20,40,.7);
+  .zoom button,#trophy{width:42px;height:42px;border-radius:10px;border:1px solid #3a2350;background:rgba(40,20,40,.7);
     color:#ffcf5c;font-size:22px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .zoom button:hover{background:rgba(70,35,70,.8)}
+  .zoom button:hover,#trophy:hover{background:rgba(70,35,70,.8)}
+  #trophy{position:fixed;right:12px;top:108px;z-index:6;font-size:20px}
   .touch{position:fixed;bottom:18px;left:0;right:0;display:none;justify-content:space-between;padding:0 18px;pointer-events:none;z-index:6}
   .touch button{pointer-events:auto;width:78px;height:78px;border-radius:50%;border:1px solid #3a2350;background:rgba(40,20,40,.55);
     color:#ffcf5c;font-size:28px;font-weight:800;-webkit-tap-highlight-color:transparent}
   .touch .rt{display:flex;gap:14px}
   @media (pointer:coarse){.touch{display:flex}}
+
+  /* ---------- overlays (name gate + leaderboard) ---------- */
+  .ov{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(720px 460px at 50% 12%,rgba(255,77,106,.16),transparent 62%),rgba(5,4,10,.93);
+    backdrop-filter:blur(6px);padding:24px;text-align:center}
+  .ov.hidden{display:none}
+  .ov h1{margin:0 0 4px;font-size:clamp(34px,8vw,60px);line-height:1;letter-spacing:1px;
+    background:linear-gradient(180deg,#fff,#ffcf5c 58%,#ff5a2d);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .ov .tag{color:#9aa0b0;margin:0 0 22px;font-size:15px}
+  .namebox{background:linear-gradient(180deg,#130d14,#0a070c);border:1px solid #2b1b25;border-radius:16px;padding:22px 24px;width:min(380px,92vw)}
+  .namebox label{display:block;font-size:11px;letter-spacing:3px;color:#ff5d6c;text-transform:uppercase;margin-bottom:10px}
+  #dd-name{width:100%;box-sizing:border-box;background:#05040a;border:1px solid #3a2535;border-radius:10px;color:#fff;
+    font-size:22px;font-weight:800;letter-spacing:2px;text-align:center;padding:12px 10px;text-transform:uppercase;outline:none}
+  #dd-name:focus{border-color:#ff5d6c}
+  .geo-line{margin:12px 0 0;font-size:14px;color:#cdd3df}
+  .btn{margin-top:18px;padding:14px 40px;border:none;border-radius:12px;font-weight:800;font-size:18px;letter-spacing:1px;cursor:pointer;
+    color:#180207;background:linear-gradient(180deg,#ffd14d,#ff7a18);box-shadow:0 12px 34px rgba(255,90,30,.35)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.ghost{background:transparent;color:#cdd3df;border:1px solid #3a2535;box-shadow:none;font-size:14px;padding:11px 22px}
+  .btn.ghost:hover{color:#ffcf5c;border-color:#ff5d6c;transform:none}
+  .ov .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
+
+  /* leaderboard */
+  #lb h1{font-size:clamp(26px,6vw,40px);margin-bottom:2px}
+  #lb-banner{color:#ffcf5c;font-weight:700;min-height:0;margin:0 0 8px;font-size:15px}
+  #lb .note{color:#7a8090;font-size:12.5px;margin:0 0 16px}
+  .pods{display:flex;gap:10px;justify-content:center;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap}
+  .pod{background:linear-gradient(180deg,#160f18,#0b080d);border:1px solid #2b1b25;border-radius:14px;padding:12px 14px;width:120px}
+  .pod.p1{border-color:#ffcf5c;box-shadow:0 0 26px rgba(255,207,92,.18);transform:translateY(-8px)}
+  .pod .medal{font-size:24px}.pod .pf{font-size:22px;margin:2px 0}
+  .pod .pn{font-weight:800;color:#fff;font-size:14px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pod .pp{color:#ffcf5c;font-weight:800;font-size:15px;margin-top:3px}
+  .pod .pm{color:#8a90a0;font-size:11px;margin-top:1px}
+  .lb-list{width:min(560px,94vw);max-height:46vh;overflow:auto;border:1px solid #221620;border-radius:12px;background:rgba(8,6,12,.5)}
+  .lb-head,.lb-row{display:grid;grid-template-columns:42px 34px 1fr 64px 64px 78px;align-items:center;gap:4px;padding:8px 12px;font-size:13px}
+  .lb-head{position:sticky;top:0;background:#120c14;color:#8a90a0;font-size:11px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #221620}
+  .lb-row{border-bottom:1px solid #160f18}
+  .lb-row:nth-child(even){background:rgba(255,255,255,.02)}
+  .lb-row.me{background:rgba(255,93,108,.14);outline:1px solid rgba(255,93,108,.4)}
+  .lb-row .r{color:#8a90a0;font-weight:700}.lb-row .nm{color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .lb-row .pts{color:#ffcf5c;font-weight:800;text-align:right}
+  .lb-row .dn{color:#ff7a7a;text-align:right}.lb-row .lv{color:#9aa0b0;text-align:right}
+  .lb-head span:nth-child(4),.lb-head span:nth-child(5),.lb-head span:nth-child(6){text-align:right}
+  .lb-empty{padding:26px;color:#7a8090}
 </style></head>
 <body>
   <canvas id="game"></canvas>
   <a class="back" href="index.html">‹ back</a>
   <div class="bar"><span class="nm" id="hud-name">DEVIL'S DUE</span><span class="s" id="hud-l">LEVEL 1/20</span><span class="s" id="hud-d">DEATHS 0</span></div>
   <div class="zoom"><button id="z-in" tabindex="-1" title="zoom in (+ / scroll)">+</button><button id="z-out" tabindex="-1" title="zoom out (− / scroll)">−</button></div>
+  <button id="trophy" tabindex="-1" title="Leaderboard">🏆</button>
   <div class="hint"><b>← → / A D</b> move · <b>Space / ↑</b> jump · <b>R</b> restart · <b>+ − / scroll / pinch</b> zoom · <a href="elements.html" style="color:#ff5d6c;text-decoration:none">glossary</a></div>
   <div class="touch">
     <button id="t-l" tabindex="-1">‹</button>
     <div class="rt"><button id="t-j" tabindex="-1">▲</button><button id="t-r" tabindex="-1">›</button></div>
   </div>
+
+  <!-- Name gate: shown before the game starts, for EVERY entry into play.html -->
+  <div class="ov" id="gate">
+    <h1>DEVIL'S DUE</h1>
+    <p class="tag">It only looks easy. Enter your name — everyone goes on the board.</p>
+    <div class="namebox">
+      <label for="dd-name">Enter your name</label>
+      <input id="dd-name" maxlength="14" autocomplete="off" spellcheck="false" placeholder="e.g. ASH" />
+      <p class="geo-line" id="dd-geo">Detecting your flag…</p>
+    </div>
+    <div class="row">
+      <button class="btn" id="dd-start">PLAY →</button>
+      <button class="btn ghost" id="dd-gate-lb">🏆 Leaderboard</button>
+    </div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="ov hidden" id="lb">
+    <h1>🏆 Leaderboard</h1>
+    <p id="lb-banner"></p>
+    <p class="note">Everyone who plays is here · ranked by points (level reached + finish bonus − deaths)</p>
+    <div class="pods" id="lb-podium"></div>
+    <div class="lb-list" id="lb-list">
+      <div class="lb-head"><span>#</span><span></span><span>Player</span><span>Level</span><span>Deaths</span><span>Points</span></div>
+      <div class="lb-empty">Loading…</div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="lb-refresh">↻ Refresh</button>
+      <button class="btn" id="lb-back">BACK</button>
+    </div>
+  </div>
+
   <script src="levels.js"></script>
+  <script src="leaderboard.js"></script>
   <script src="engine.js"></script>
-  <script>Due.init();</script>
+  <script>
+  (function () {
+    const $ = id => document.getElementById(id);
+    const gate = $("gate"), nameInput = $("dd-name"), geoLine = $("dd-geo"),
+          startBtn = $("dd-start"), gateLbBtn = $("dd-gate-lb"),
+          lbScreen = $("lb"), lbPodium = $("lb-podium"), lbList = $("lb-list"),
+          lbBack = $("lb-back"), lbRefresh = $("lb-refresh"), lbBanner = $("lb-banner"),
+          trophy = $("trophy");
+    const TOTAL = (window.LEVELS && LEVELS.length) || 20;
+    let playerName = LB.getName(), playerGeo = { cc: "", country: "" }, lbDeaths = 0, started = false;
+
+    // Start the engine GATED — it loads/renders level 1 behind the overlay but does not run until PLAY.
+    window.__ddGate = true;
+    Due.init();
+
+    // ----- name gate -----
+    nameInput.value = playerName;
+    function renderGeo() { geoLine.textContent = playerGeo.cc ? (LB.flag(playerGeo.cc) + " " + playerGeo.country) : "🏴‍☠️ flag of the unknown"; }
+    LB.geo().then(g => { playerGeo = g; renderGeo(); });
+
+    function beginRun() {
+      const n = (nameInput.value.trim().toUpperCase().slice(0, 14)) || "ANON";
+      playerName = n; LB.setName(n);
+      lbDeaths = 0;
+      LB.startRun({ name: n, cc: playerGeo.cc, country: playerGeo.country }); // on the board immediately, level 1
+      gate.classList.add("hidden"); lbScreen.classList.add("hidden");
+      started = true;
+      Due.start();
+    }
+    startBtn.onclick = beginRun;
+    nameInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); beginRun(); } });
+
+    // ----- engine lifecycle -> leaderboard -----
+    Due.on((ev, data) => {
+      if (ev === "death") { lbDeaths++; LB.progress(data.level, lbDeaths); }
+      else if (ev === "level") { LB.progress(data.level, lbDeaths); }
+      else if (ev === "win") {
+        LB.finish({ name: playerName, cc: playerGeo.cc, country: playerGeo.country,
+          deaths: lbDeaths, time: +(+data.time).toFixed(1), totalLevels: TOTAL })
+          .then(() => openBoard("🏁 " + playerName + " — you beat all " + TOTAL + " levels! " + lbDeaths + " deaths."));
+      }
+    });
+
+    // ----- leaderboard rendering -----
+    function rowsHtml(scores, myId) {
+      let html = '<div class="lb-head"><span>#</span><span></span><span>Player</span><span>Level</span><span>Deaths</span><span>Points</span></div>';
+      if (!scores.length) return html + '<div class="lb-empty">No one has played yet. Be the first 😈</div>';
+      scores.forEach((s, i) => {
+        const lv = s.finished ? "🏁 " + TOTAL : "Lv " + Math.min(TOTAL, Math.max(1, s.level || 1));
+        const me = s.id === myId ? " me" : "";
+        html += '<div class="lb-row' + me + '"><span class="r">' + (i + 1) + '</span>' +
+          '<span class="f">' + LB.flag(s.cc) + '</span>' +
+          '<span class="nm">' + esc(s.name || "ANON") + '</span>' +
+          '<span class="lv">' + lv + '</span>' +
+          '<span class="dn">' + (s.deaths || 0) + '</span>' +
+          '<span class="pts">' + (s.points || LB.points(s)) + '</span></div>';
+      });
+      return html;
+    }
+    function podiumHtml(top) {
+      if (!top.length) return "";
+      const medals = ["🥇", "🥈", "🥉"], order = [1, 0, 2]; // visually: 2nd, 1st, 3rd
+      return order.filter(i => top[i]).map(i => {
+        const s = top[i];
+        const lv = s.finished ? "🏁 cleared" : "Lv " + Math.min(TOTAL, Math.max(1, s.level || 1));
+        return '<div class="pod p' + (i + 1) + '"><div class="medal">' + medals[i] + '</div>' +
+          '<div class="pf">' + LB.flag(s.cc) + '</div>' +
+          '<div class="pn">' + esc(s.name || "ANON") + '</div>' +
+          '<div class="pp">' + (s.points || LB.points(s)) + ' pts</div>' +
+          '<div class="pm">' + lv + ' · ' + (s.deaths || 0) + ' deaths</div></div>';
+      }).join("");
+    }
+    function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+    async function renderBoard() {
+      lbList.innerHTML = '<div class="lb-head"><span>#</span><span></span><span>Player</span><span>Level</span><span>Deaths</span><span>Points</span></div><div class="lb-empty">Loading…</div>';
+      const scores = await LB.fetchScores();
+      const myId = LB.myId();
+      lbPodium.innerHTML = podiumHtml(scores.slice(0, 3));
+      lbList.innerHTML = rowsHtml(scores, myId);
+      const meRow = lbList.querySelector(".lb-row.me"); if (meRow) meRow.scrollIntoView({ block: "nearest" });
+    }
+    function openBoard(banner) {
+      lbBanner.textContent = banner || "";
+      Due.pause();
+      lbScreen.classList.remove("hidden");
+      renderBoard();
+    }
+    function closeBoard() {
+      lbScreen.classList.add("hidden");
+      if (!started || Due.state === "win") {   // at the gate, or just finished a run -> back to the name gate for a fresh run
+        started = false;
+        gate.classList.remove("hidden");
+      } else {                                  // opened mid-run -> resume right where we paused
+        Due.resume();
+      }
+    }
+
+    trophy.onclick = () => openBoard("");
+    gateLbBtn.onclick = () => openBoard("");
+    lbRefresh.onclick = renderBoard;
+    lbBack.onclick = closeBoard;
+
+    // deep link: index.html "Leaderboard" button opens the board on load
+    if (/[?&]lb=1/.test(location.search)) openBoard("");
+  })();
+  </script>
 </body></html>

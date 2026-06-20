@@ -19,6 +19,10 @@
   let state = "play", winT = 0;
   const keys = { left: false, right: false, jump: false };
   let acc = 0, last = 0, headless = false;
+  // lifecycle gate + events (used by the leaderboard / name gate on play.html; verifier never touches these)
+  let paused = false;
+  const cbs = [];
+  function emit(ev, data) { for (const f of cbs) { try { f(ev, data); } catch (e) {} } }
 
   // dynamic level state
   let traps = [], vanished = new Set(), crumbling = {}, baited = {}, conveyors = [], cannons = [], flyers = [], fakeDoors = [];
@@ -134,14 +138,15 @@
   function die() {
     if (player.dead) return; player.dead = true; player.deathT = 0; deaths++;
     setHud(); shake = 16; hitStop = 0.05; flash = 0.5; sDie();
+    emit("death", { level: li + 1, deaths });
     const cx = player.x + PW / 2, cy = player.y + PH / 2;
     for (let i = 0; i < 28; i++) { const a = i / 28 * 6.28, s = 140 + rnd() * 280;
       particles.push({ x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 0.6 + rnd() * 0.5, r: 2 + rnd() * 4,
         c: rnd() < 0.6 ? "#ff3b54" : (rnd() < 0.5 ? "#ffcf5c" : "#ff7a18") }); }
   }
   function nextLevel() {
-    if (li + 1 < LEVELS.length) { li++; sWin(); loadLevel(li); }
-    else { state = "win"; winT = 0; sWin(); }
+    if (li + 1 < LEVELS.length) { li++; sWin(); loadLevel(li); emit("level", { level: li + 1, deaths }); }
+    else { state = "win"; winT = 0; sWin(); emit("win", { deaths, time: runTime() }); }
   }
   function setHud() {
     const L = document.getElementById("hud-l"), D = document.getElementById("hud-d"), N = document.getElementById("hud-name");
@@ -168,9 +173,11 @@
   function isGridHazard(ch) { return ch === "^" || ch === "V"; }  // ^ floor spikes, V ceiling spikes (both visible decor)
 
   // ---------- step ----------
+  let runT = 0;                       // cumulative seconds of active play across the whole run
+  function runTime() { return runT; }
   function step(dt) {
     if (state !== "play") return;
-    animTime += dt;
+    animTime += dt; runT += dt;
     player.prevX = player.x; player.prevY = player.y;
     if (player.dead) { player.deathT += dt; if (player.deathT > 0.5) spawn(); return; }
     levelTime += dt;
@@ -609,6 +616,7 @@
   // ---------- loop ----------
   function frame(now) {
     if (headless) return;   // deterministic verifier drives physics via Due.tick(); stop the rAF loop
+    if (paused) { last = now; if (!window.__ddNoRender) render(); requestAnimationFrame(frame); return; }  // gated behind name overlay: freeze, keep drawing
     if (!last) last = now; let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
     if (hitStop > 0) { hitStop -= dt; dt *= 0.15; }
     acc += dt; let n = 0; while (acc >= DT && n++ < 8) { step(DT); acc -= DT; }
@@ -636,6 +644,7 @@
     return null;
   }
   addEventListener("keydown", e => {
+    if (paused) return;                  // name / leaderboard overlay is up — let the page handle keys
     if (document.activeElement && document.activeElement.tagName === "BUTTON") document.activeElement.blur();
     const a = action(e); if (!a) return;
     if (a === "left") keys.left = true;
@@ -670,6 +679,7 @@
       canvas = document.getElementById("game"); ctx = canvas.getContext("2d");
       try { const z = parseFloat(localStorage.getItem("dd_zoom")); if (z) userZoom = clamp(z, 0.5, 2.4); } catch (e) {}
       resize(); loadLevel(0);
+      paused = !!window.__ddGate;        // play.html sets this so the game waits behind the name overlay
       addEventListener("pointerdown", () => A() && A().resume && A().resume());
       bindTouch("t-l", v => keys.left = v); bindTouch("t-r", v => keys.right = v);
       bindTouch("t-j", v => { if (v && state === "play" && !player.dead) { player.jumpBuf = JBUF; keys.jump = true; } else keys.jump = false; });
@@ -685,6 +695,11 @@
     projectiles() { const a = []; for (const f of flyers) a.push({ x: f.x, y: f.y, w: f.w, h: f.h, vx: f.vx });
       for (const z of cannons) for (const s of z.shots) a.push({ x: s.x - s.r, y: s.y - s.r, w: s.r * 2, h: s.r * 2, vx: s.vx }); return a; },
     goto(i) { deaths = 0; loadLevel(i); },
+    on(fn) { if (typeof fn === "function") cbs.push(fn); },
+    get paused() { return paused; },
+    pause() { paused = true; },
+    resume() { paused = false; last = 0; },                                                                  // un-pause WITHOUT resetting (board closed mid-run)
+    start() { runT = 0; deaths = 0; setHud(); loadLevel(0); paused = false; last = 0; emit("start", {}); },  // begin a fresh run from level 1
     setHeadless(v) { headless = v; if (!v) { last = 0; requestAnimationFrame(frame); } },
     tick(n) { for (let i = 0; i < (n || 1); i++) step(DT); },   // advance physics deterministically (no rAF/real-time)
     setZoom(z) { setZoom(z); }, get zoom() { return userZoom; },
