@@ -67,13 +67,45 @@
   .lb-row .dn{color:#ff7a7a;text-align:right}.lb-row .lv{color:#9aa0b0;text-align:right}
   .lb-head span:nth-child(4),.lb-head span:nth-child(5),.lb-head span:nth-child(6){text-align:right}
   .lb-empty{padding:26px;color:#7a8090}
+  .bar .coins{color:#ffcf5c;font-weight:700}
+  #shopbtn{position:fixed;right:12px;top:154px;z-index:6;width:42px;height:42px;border-radius:10px;border:1px solid #3a2350;
+    background:rgba(40,20,40,.7);color:#ffcf5c;font-size:19px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  #shopbtn:hover{background:rgba(70,35,70,.8)}
+  #coin-toast{position:fixed;left:50%;top:54px;transform:translateX(-50%) translateY(-12px);z-index:40;opacity:0;pointer-events:none;
+    background:rgba(20,12,6,.92);border:1px solid #ffcf5c;color:#ffcf5c;font-weight:800;padding:8px 18px;border-radius:999px;font-size:15px;transition:.25s}
+  #coin-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* shop */
+  #shop h1{font-size:clamp(26px,6vw,40px);margin-bottom:2px}
+  .shopcoins{color:#ffcf5c;font-weight:800;font-size:18px;margin:0 0 14px}
+  .shoptabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center}
+  .stab{background:#160f18;border:1px solid #2b1b25;color:#cdd3df;border-radius:999px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer}
+  .stab.on{background:linear-gradient(180deg,#ffd14d,#ff7a18);color:#180207;border-color:transparent}
+  .shopbody{width:min(620px,95vw);max-height:52vh;overflow:auto;padding:2px}
+  .skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .skincard{background:linear-gradient(180deg,#160f18,#0b080d);border:1px solid #2b1b25;border-radius:14px;padding:12px;text-align:center}
+  .skincard.equipped{border-color:#ffcf5c;box-shadow:0 0 18px rgba(255,207,92,.18)}
+  .swatch{width:46px;height:46px;border-radius:50%;margin:0 auto 8px;border:2px solid rgba(255,255,255,.15)}
+  .skincard .sn{font-weight:800;color:#fff;font-size:13.5px}
+  .skincard .sb{color:#8a90a0;font-size:11px;line-height:1.35;margin:3px 0 8px;min-height:30px}
+  .sbtn{width:100%;border:none;border-radius:9px;padding:8px;font-weight:800;font-size:12.5px;cursor:pointer}
+  .sbtn.buy{background:linear-gradient(180deg,#ffd14d,#ff7a18);color:#180207}
+  .sbtn.equip{background:#23314a;color:#cfe0ff}
+  .sbtn.on{background:#1f7a3a;color:#eafff0}
+  .sbtn.lock{background:#241620;color:#7a6a72;cursor:not-allowed}
+  .arow{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#160f18,#0b080d);border:1px solid #2b1b25;border-radius:12px;padding:12px 14px;margin-bottom:9px;text-align:left}
+  .arow .ai{font-size:22px;width:26px;text-align:center}
+  .arow .at{flex:1}.arow .at b{color:#fff;font-size:14px}.arow .at span{display:block;color:#8a90a0;font-size:12px;margin-top:2px}
+  .arow .sbtn{width:auto;min-width:96px}
+  .packnote{color:#7a8090;font-size:12px;margin:0 0 12px;line-height:1.45}
 </style></head>
 <body>
   <canvas id="game"></canvas>
   <a class="back" href="index.html">‹ back</a>
-  <div class="bar"><span class="nm" id="hud-name">DEVIL'S DUE</span><span class="s" id="hud-l">LEVEL 1/20</span><span class="s" id="hud-d">DEATHS 0</span></div>
+  <div class="bar"><span class="nm" id="hud-name">DEVIL'S DUE</span><span class="s" id="hud-l">LEVEL 1/20</span><span class="s" id="hud-d">DEATHS 0</span><span class="s coins" id="hud-coins">🪙 0</span></div>
   <div class="zoom"><button id="z-in" tabindex="-1" title="zoom in (+ / scroll)">+</button><button id="z-out" tabindex="-1" title="zoom out (− / scroll)">−</button></div>
   <button id="trophy" tabindex="-1" title="Leaderboard">🏆</button>
+  <button id="shopbtn" tabindex="-1" title="Shop — skins &amp; upgrades">🛒</button>
+  <div id="coin-toast"></div>
   <div class="hint"><b>← → / A D</b> move · <b>Space / ↑</b> jump · <b>R</b> restart · <b>+ − / scroll / pinch</b> zoom · <a href="elements.html" style="color:#ff5d6c;text-decoration:none">glossary</a></div>
   <div class="touch">
     <button id="t-l" tabindex="-1">‹</button>
@@ -111,8 +143,23 @@
     </div>
   </div>
 
+  <!-- Shop: skins, improvements, coin packs -->
+  <div class="ov hidden" id="shop">
+    <h1>🛒 The Devil's Shop</h1>
+    <p class="shopcoins">🪙 <span id="shop-balance">0</span> coins · earn more by clearing levels</p>
+    <div class="shoptabs">
+      <button class="stab on" data-tab="skins">Skins</button>
+      <button class="stab" data-tab="assists">Improvements</button>
+      <button class="stab" data-tab="packs">Get Coins</button>
+    </div>
+    <div class="shopbody" id="shop-body"></div>
+    <div class="row"><button class="btn" id="shop-back">BACK</button></div>
+  </div>
+
   <script src="levels.js"></script>
   <script src="leaderboard.js"></script>
+  <script src="shop-config.js"></script>
+  <script src="shop.js"></script>
   <script src="engine.js"></script>
   <script>
   (function () {
@@ -121,13 +168,17 @@
           startBtn = $("dd-start"), gateLbBtn = $("dd-gate-lb"),
           lbScreen = $("lb"), lbPodium = $("lb-podium"), lbList = $("lb-list"),
           lbBack = $("lb-back"), lbRefresh = $("lb-refresh"), lbBanner = $("lb-banner"),
-          trophy = $("trophy");
+          trophy = $("trophy"), shopBtn = $("shopbtn"), shopScreen = $("shop"),
+          shopBody = $("shop-body"), shopBack = $("shop-back"), shopBal = $("shop-balance"),
+          hudCoins = $("hud-coins"), coinToast = $("coin-toast");
     const TOTAL = (window.LEVELS && LEVELS.length) || 20;
     let playerName = LB.getName(), playerGeo = { cc: "", country: "" }, lbDeaths = 0, started = false;
 
     // Start the engine GATED — it loads/renders level 1 behind the overlay but does not run until PLAY.
     window.__ddGate = true;
     Due.init();
+    Shop.apply();              // equip the chosen skin + improvements before the first frame draws
+    updateCoins();
 
     // ----- name gate -----
     nameInput.value = playerName;
@@ -149,13 +200,29 @@
     // ----- engine lifecycle -> leaderboard -----
     Due.on((ev, data) => {
       if (ev === "death") { lbDeaths++; LB.progress(data.level, lbDeaths); }
-      else if (ev === "level") { LB.progress(data.level, lbDeaths); }
+      else if (ev === "level") {
+        LB.progress(data.level, lbDeaths);
+        coinReward(Shop.award(data.level - 1, false));   // you just cleared the previous level
+      }
       else if (ev === "win") {
+        coinReward(Shop.award(TOTAL, true));              // cleared the last level + finished the game
         LB.finish({ name: playerName, cc: playerGeo.cc, country: playerGeo.country,
           deaths: lbDeaths, time: +(+data.time).toFixed(1), totalLevels: TOTAL })
           .then(() => openBoard("🏁 " + playerName + " — you beat all " + TOTAL + " levels! " + lbDeaths + " deaths."));
       }
     });
+
+    // ----- coins -----
+    let toastTimer = null;
+    function updateCoins() { const c = Shop.coins(); if (hudCoins) hudCoins.textContent = "🪙 " + c; if (shopBal) shopBal.textContent = c; }
+    function coinReward(n) {
+      updateCoins();
+      if (!n) return;
+      coinToast.textContent = "+" + n + " 🪙";
+      coinToast.classList.add("show");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => coinToast.classList.remove("show"), 1400);
+    }
 
     // ----- leaderboard rendering -----
     function rowsHtml(scores, myId) {
@@ -217,8 +284,74 @@
     lbRefresh.onclick = renderBoard;
     lbBack.onclick = closeBoard;
 
-    // deep link: index.html "Leaderboard" button opens the board on load
+    // ----- shop -----
+    let shopTab = "skins";
+    function openShop() { Due.pause(); shopScreen.classList.remove("hidden"); renderShop(); }
+    function closeShop() {
+      shopScreen.classList.add("hidden");
+      if (!started || Due.state === "win") { started = false; gate.classList.remove("hidden"); }
+      else Due.resume();
+    }
+    const ICON = { sense: "☠", forgiving: "👟", doubler: "💰" };
+    function renderShop() {
+      updateCoins();
+      const cat = Shop.catalog; let html = "";
+      if (shopTab === "skins") {
+        html += '<div class="skins">';
+        cat.skins.forEach(s => {
+          const owned = Shop.ownsSkin(s.id), eq = Shop.equippedSkin() === s.id;
+          const sw = "radial-gradient(circle at 35% 32%," + s.skin.body[0] + "," + s.skin.body[1] + " 55%," + s.skin.body[2] + ")";
+          const btn = eq ? '<button class="sbtn on" disabled>EQUIPPED</button>'
+            : owned ? '<button class="sbtn equip" data-equip="' + s.id + '">EQUIP</button>'
+            : '<button class="sbtn buy" data-buyskin="' + s.id + '">🪙 ' + s.price + '</button>';
+          html += '<div class="skincard' + (eq ? ' equipped' : '') + '"><div class="swatch" style="background:' + sw + '"></div>' +
+            '<div class="sn">' + esc(s.name) + '</div><div class="sb">' + esc(s.blurb) + '</div>' + btn + '</div>';
+        });
+        html += '</div>';
+      } else if (shopTab === "assists") {
+        cat.assists.forEach(a => {
+          const owned = Shop.ownsAssist(a.id);
+          const btn = !owned ? '<button class="sbtn buy" data-buyassist="' + a.id + '">🪙 ' + a.price + '</button>'
+            : a.id === "doubler" ? '<button class="sbtn on" disabled>ACTIVE</button>'
+            : '<button class="sbtn ' + (Shop.assistOn(a.id) ? "on" : "equip") + '" data-toggle="' + a.id + '">' + (Shop.assistOn(a.id) ? "ON" : "OFF") + '</button>';
+          html += '<div class="arow"><div class="ai">' + (ICON[a.id] || "✦") + '</div>' +
+            '<div class="at"><b>' + esc(a.name) + '</b><span>' + esc(a.blurb) + '</span></div>' + btn + '</div>';
+        });
+      } else {
+        if (cat.packNote) html += '<p class="packnote">' + esc(cat.packNote) + '</p>';
+        if (!cat.packs.length) html += '<div class="lb-empty">No coin packs configured.</div>';
+        cat.packs.forEach(p => {
+          const live = !!p.buyUrl;
+          html += '<div class="arow"><div class="ai">🪙</div><div class="at"><b>' + esc(p.name) + ' — ' + p.coins + ' coins</b>' +
+            '<span>' + (live ? "Secure checkout ↗" : "Coming soon — add a payment link in shop-config.js") + '</span></div>' +
+            '<button class="sbtn ' + (live ? "buy" : "lock") + '" data-pack="' + p.id + '"' + (live ? "" : " disabled") + '>' + esc(p.priceLabel) + '</button></div>';
+        });
+      }
+      shopBody.innerHTML = html;
+    }
+    shopScreen.querySelectorAll(".stab").forEach(t => t.onclick = () => {
+      shopScreen.querySelectorAll(".stab").forEach(x => x.classList.remove("on"));
+      t.classList.add("on"); shopTab = t.dataset.tab; renderShop();
+    });
+    function flashBtn(b, msg) { const old = b.textContent; b.textContent = msg; setTimeout(() => { if (b.isConnected) b.textContent = old; }, 1100); }
+    shopBody.addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.pack) { const pr = Shop.buyPack(b.dataset.pack); if (!pr || !pr.ok) flashBtn(b, "Soon!"); return; }
+      let r;
+      if (b.dataset.buyskin) r = Shop.buySkin(b.dataset.buyskin);
+      else if (b.dataset.equip) r = Shop.equipSkin(b.dataset.equip);
+      else if (b.dataset.buyassist) r = Shop.buyAssist(b.dataset.buyassist);
+      else if (b.dataset.toggle) r = Shop.toggleAssist(b.dataset.toggle);
+      else return;
+      if (r && r.ok) renderShop();
+      else if (r && r.reason === "poor") flashBtn(b, "Need more 🪙");
+    });
+    shopBtn.onclick = openShop;
+    shopBack.onclick = closeShop;
+
+    // deep links from index.html
     if (/[?&]lb=1/.test(location.search)) openBoard("");
+    if (/[?&]shop=1/.test(location.search)) openShop();
   })();
   </script>
 </body></html>

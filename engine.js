@@ -16,6 +16,12 @@
   let LV, grid, WC, WR, start, exitCell, li = 0, deaths = 0, TH = null;
   let player, particles = [], shake = 0, animTime = 0, levelTime = 0, hitStop = 0, flash = 0;
   let camX = 0, camY = 0, gdir = 1;
+  // player skin (set by the shop via Due.setSkin); default = the red imp
+  const DEFAULT_SKIN = { body: ["#ff8aa0", "#ff3b54", "#c01030"], feet: "#f2c14e", glow: "255,90,60", brow: "#160018", eye: "#fff", pupil: "#160018", horns: false, aura: null };
+  let skin = DEFAULT_SKIN;
+  // optional purchasable assists (the shop equips these; ALL default to off so the verifier sees the base game)
+  let assist = { coyote: 1, jumpBuf: 1, sense: false };
+  let deathMarks = [];   // columns where you've died THIS level (shown faintly when "sixth sense" is equipped)
   let state = "play", winT = 0;
   const keys = { left: false, right: false, jump: false };
   let acc = 0, last = 0, headless = false;
@@ -95,6 +101,7 @@
       if (ch === "S") start = { c, r };
       if (ch === "E") exitCell = { c, r };
     }
+    deathMarks = [];        // fresh level → forget the previous level's death spots
     armLevel();
     spawn();
     setHud();
@@ -138,6 +145,7 @@
   function die() {
     if (player.dead) return; player.dead = true; player.deathT = 0; deaths++;
     setHud(); shake = 16; hitStop = 0.05; flash = 0.5; sDie();
+    deathMarks.push({ x: player.x + PW / 2, y: player.y + PH / 2 });   // remember the spot (for the "sixth sense" assist)
     emit("death", { level: li + 1, deaths });
     const cx = player.x + PW / 2, cy = player.y + PH / 2;
     for (let i = 0; i < 28; i++) { const a = i / 28 * 6.28, s = 140 + rnd() * 280;
@@ -195,7 +203,7 @@
     else { const f = FRICTION * dt; if (player.vx > f) player.vx -= f; else if (player.vx < -f) player.vx += f; else player.vx = 0; }
 
     if (player.jumpBuf > 0) player.jumpBuf -= dt;
-    if (player.onGround) player.coyote = COYOTE; else player.coyote -= dt;
+    if (player.onGround) player.coyote = COYOTE * assist.coyote; else player.coyote -= dt;
     if (player.jumpBuf > 0 && player.coyote > 0) { player.vy = -JUMP * gdir; player.onGround = false; player.coyote = 0; player.jumpBuf = 0; sJump(); }
     if (!keys.jump && player.vy * gdir < 0) player.vy += GRAVITY * gdir * dt * 0.9;
     player.vy += GRAVITY * gdir * dt; player.vy = clamp(player.vy, -MAX_FALL, MAX_FALL);
@@ -398,6 +406,9 @@
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) drawTile(grid[r][c], c, r);
 
     drawCannons(); drawTrapsLive(); drawFlyers();
+    if (assist.sense) for (const m of deathMarks) {   // "sixth sense": a faint skull where a trap got you before
+      ctx.save(); ctx.globalAlpha = 0.45 + 0.2 * Math.sin(animTime * 3); ctx.fillStyle = "#ff5d6c"; ctx.font = "16px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("☠", m.x, m.y + 6); ctx.restore(); }
     for (const d of fakeDoors) drawDoor(d.c * TILE, d.r * TILE);
     if (exitCell) drawDoor(exitCell.c * TILE, exitCell.r * TILE);
     drawSystems();
@@ -600,16 +611,20 @@
     ctx.save(); ctx.translate(cx, cy); if (gdir < 0) ctx.scale(1, -1);
     ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0, R + 2, R, 3, 0, 0, 7); ctx.fill();
     ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(animTime * 4);
-    const gg = ctx.createRadialGradient(0, R, 1, 0, R, 22); gg.addColorStop(0, "rgba(255,90,60,0.6)"); gg.addColorStop(1, "transparent");
+    const gg = ctx.createRadialGradient(0, R, 1, 0, R, 22); gg.addColorStop(0, "rgba(" + skin.glow + ",0.6)"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.beginPath(); ctx.ellipse(0, R, 20, 7, 0, 0, 7); ctx.fill(); ctx.restore();
     const sw = Math.sin(player.run) * 3;
-    ctx.fillStyle = "#f2c14e"; ctx.beginPath(); ctx.ellipse(-5 + sw, R, 5, 2.4, 0, 0, 7); ctx.ellipse(5 - sw, R, 5, 2.4, 0, 0, 7); ctx.fill();
-    const bg = ctx.createRadialGradient(-R * .3, -R * .4, 1, 0, 0, R * 1.2); bg.addColorStop(0, "#ff8aa0"); bg.addColorStop(.5, "#ff3b54"); bg.addColorStop(1, "#c01030");
+    ctx.fillStyle = skin.feet; ctx.beginPath(); ctx.ellipse(-5 + sw, R, 5, 2.4, 0, 0, 7); ctx.ellipse(5 - sw, R, 5, 2.4, 0, 0, 7); ctx.fill();
+    if (skin.aura) { ctx.save(); ctx.globalAlpha = 0.5 + 0.25 * Math.sin(animTime * 5); ctx.strokeStyle = skin.aura; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, R + 3.5, 0, 7); ctx.stroke(); ctx.restore(); }
+    if (skin.horns) { ctx.fillStyle = skin.body[2]; ctx.beginPath();
+      ctx.moveTo(-R + 3, -R + 3); ctx.lineTo(-R - 2, -R - 5); ctx.lineTo(-R + 6, -R + 1); ctx.closePath();
+      ctx.moveTo(R - 3, -R + 3); ctx.lineTo(R + 2, -R - 5); ctx.lineTo(R - 6, -R + 1); ctx.closePath(); ctx.fill(); }
+    const bg = ctx.createRadialGradient(-R * .3, -R * .4, 1, 0, 0, R * 1.2); bg.addColorStop(0, skin.body[0]); bg.addColorStop(.5, skin.body[1]); bg.addColorStop(1, skin.body[2]);
     ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
-    const ex = 4.5; ctx.strokeStyle = "#160018"; ctx.lineWidth = 2; ctx.lineCap = "round";
+    const ex = 4.5; ctx.strokeStyle = skin.brow; ctx.lineWidth = 2; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(-ex - 3, -6.5); ctx.lineTo(-ex + 2.5, -4); ctx.moveTo(ex + 3, -6.5); ctx.lineTo(ex - 2.5, -4); ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(-ex, -1.5, 3, 2.6, 0, 0, 7); ctx.ellipse(ex, -1.5, 3, 2.6, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = "#160018"; ctx.beginPath(); ctx.arc(-ex + dir, -1, 1.5, 0, 7); ctx.arc(ex + dir, -1, 1.5, 0, 7); ctx.fill();
+    ctx.fillStyle = skin.eye; ctx.beginPath(); ctx.ellipse(-ex, -1.5, 3, 2.6, 0, 0, 7); ctx.ellipse(ex, -1.5, 3, 2.6, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = skin.pupil; ctx.beginPath(); ctx.arc(-ex + dir, -1, 1.5, 0, 7); ctx.arc(ex + dir, -1, 1.5, 0, 7); ctx.fill();
     ctx.restore();
   }
 
@@ -649,7 +664,7 @@
     const a = action(e); if (!a) return;
     if (a === "left") keys.left = true;
     else if (a === "right") keys.right = true;
-    else if (a === "jump") { if (state === "play" && !player.dead && !e.repeat) { player.jumpBuf = JBUF; keys.jump = true; } }
+    else if (a === "jump") { if (state === "play" && !player.dead && !e.repeat) { player.jumpBuf = JBUF * assist.jumpBuf; keys.jump = true; } }
     else if (a === "restart") { deaths = 0; setHud(); loadLevel(state === "win" ? 0 : li); }
     else if (a === "zoomin") setZoom(userZoom * 1.12);
     else if (a === "zoomout") setZoom(userZoom / 1.12);
@@ -682,7 +697,7 @@
       paused = !!window.__ddGate;        // play.html sets this so the game waits behind the name overlay
       addEventListener("pointerdown", () => A() && A().resume && A().resume());
       bindTouch("t-l", v => keys.left = v); bindTouch("t-r", v => keys.right = v);
-      bindTouch("t-j", v => { if (v && state === "play" && !player.dead) { player.jumpBuf = JBUF; keys.jump = true; } else keys.jump = false; });
+      bindTouch("t-j", v => { if (v && state === "play" && !player.dead) { player.jumpBuf = JBUF * assist.jumpBuf; keys.jump = true; } else keys.jump = false; });
       const zi = document.getElementById("z-in"), zo = document.getElementById("z-out");
       if (zi) zi.onclick = () => setZoom(userZoom * 1.15);
       if (zo) zo.onclick = () => setZoom(userZoom / 1.15);
@@ -696,6 +711,8 @@
       for (const z of cannons) for (const s of z.shots) a.push({ x: s.x - s.r, y: s.y - s.r, w: s.r * 2, h: s.r * 2, vx: s.vx }); return a; },
     goto(i) { deaths = 0; loadLevel(i); },
     on(fn) { if (typeof fn === "function") cbs.push(fn); },
+    setSkin(s) { skin = Object.assign({}, DEFAULT_SKIN, s || {}); },
+    setAssist(a) { assist = Object.assign({ coyote: 1, jumpBuf: 1, sense: false }, a || {}); },
     get paused() { return paused; },
     pause() { paused = true; },
     resume() { paused = false; last = 0; },                                                                  // un-pause WITHOUT resetting (board closed mid-run)
