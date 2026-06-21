@@ -32,25 +32,22 @@
     return launch; }
 
   // ---------- L1 — THE LONG WALK ----------
-  // SIGNATURE: the gentle teacher. A calm opening — then the floor you trusted simply isn't there.
-  // OPENER: SAFE. First death is an invisible pit at col 9, not a spike in your face.
+  // SIGNATURE: the gentle teacher on UNEVEN ground — drop down a tier, climb back up — with the invisible-pit
+  // lie woven through each level. No flat hallway. OPENER: SAFE — first death is the pit at col 9.
   function L1() {
     const W = 44, g = G(W);
-    ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 9, "v");                                 // invisible ground pit — the first lie
-    pit(g, 25, 31);                                     // a real chasm — only the deck crosses it
-    const st = stair(g, 16);
-    fill(g, 10, st.up, 36, "#");                        // upper deck, spanning the chasm
+    fill(g, 16, 0, 14, "#"); fill(g, 17, 0, 14, "^"); put(g, 15, 2, "S");   // upper-left tier
+    put(g, 16, 9, "v");                                                     // the first lie
+    fill(g, 18, 15, 28, "#"); fill(g, 19, 15, 28, "^");                     // step DOWN to a lower tier
+    put(g, 18, 22, "v");                                                    // another lie down here
+    fill(g, 16, 29, W - 1, "#"); fill(g, 17, 29, W - 1, "^");               // climb back UP to the last tier
     put(g, 15, W - 2, "E");
     return {
       name: "THE LONG WALK", bg: ["#0c0710", "#05040a"], block: "#3a2350", manual: true,
       grid: S(g),
-      jumpCols: [8, ...st.launch],
-      fakeDoors: [{ c: 33, r: 9 }],                      // the lie sits up on the deck
+      jumpCols: [8, 21, 28],
       traps: [
-        { do: "drop", c: 12, r: 11, at: 10.0, floorR: 15 }, // a single sky-spike after the pit
-        { do: "popspike", c: 28, r: 9, at: 26.0 },          // one sting up on the deck
-        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },    // and the doorstep after you drop down
+        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
       ],
     };
   }
@@ -123,27 +120,23 @@
     };
   }
 
-  // ---------- L5 — TWO DOORS ----------
-  // SIGNATURE: the doors lie — the obvious one is lethal, the real one bolts and you chase it through gunfire.
-  // OPENER: SAFE walk; the first bite is the invisible pit at col 14 (no spike-in-the-face start).
+  // ---------- L5 — DEAD MAN'S SWITCH ----------
+  // SIGNATURE: a screaming circular SAW patrols the corridor. There's a big red BUTTON earlier on the floor —
+  // slap it and the blade dies. Miss it and the blade doesn't. OPENER: an invisible pit at col 9.
   function L5() {
-    const W = 52, g = G(W);
+    const W = 48, g = G(W);
     ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 14, "v"); fill(g, 16, 20, 22, "c");
-    const st = stair(g, 29);
-    pit(g, 38, 51);
-    fill(g, 10, 38, 50, "#");
-    put(g, 9, 48, "E");
+    put(g, 16, 9, "v");
+    put(g, 15, W - 2, "E");
     return {
-      name: "TWO DOORS", bg: ["#0c0710", "#05040a"], block: "#45236a", manual: true,
+      name: "DEAD MAN'S SWITCH", bg: ["#0c0a10", "#05040a"], block: "#5a2a2a", manual: true,
       grid: S(g),
-      jumpCols: [13, ...st.launch],
-      fakeDoors: [{ c: 25, r: 15 }],                     // the obvious ground-floor door — a lie
-      cannons: [{ c: 46, r: 9, dir: -1, period: 2.2, speed: 265, phase: 0.0, life: 1.4 }],
+      jumpCols: [8],
+      buttons: [{ c: 18, r: 15, group: "saw" }],                        // hit this to kill the blade
+      saws: [{ c0: 26, c1: 38, r: 15, speed: 210, group: "saw" }],     // ...or it carves you on the way to the door
       traps: [
-        { do: "drop", c: 18, r: 11, at: 16.0, floorR: 15 },
-        { do: "runaway", to: { c: 41, r: 9 }, at: 46.0 },// reach the upstairs door and it bolts back along the deck
-        { do: "doorspike", c: 40, r: 9, at: 41.5 },
+        { do: "popspike", c: 14, r: 15, at: 13 },
+        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
       ],
     };
   }
@@ -168,20 +161,20 @@
       ] };
   }
 
-  // L7 — FLY TRAP: a VOLLEY of javelins screams in sideways across open ground. SIGNATURE: aerial crossfire.
-  // OPENER: open, inviting ground — then the first spear, no spike underfoot.
+  // L7 — THE LIFT: the ground ends at a spike chasm. A tower of metal rises and falls in the gap — step on
+  // when it's down, RIDE it up, step off onto the high ledge. SIGNATURE: a moving lift (the floor carries you).
   function L7() {
-    const W = 50, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 12, "v"); fill(g, 16, 16, 18, "c");
-    const st = stair(g, 21); pit(g, 30, 36); fill(g, 10, 30, 42, "#");
-    put(g, 15, W - 2, "E");
-    return { name: "FLY TRAP", bg: ["#0c0a10", "#05040a"], block: "#3a2350", manual: true, grid: S(g),
-      jumpCols: [11, ...st.launch],
-      traps: [
-        { do: "flyspike", r: 15, at: 4, fromRight: true, speed: 420 },   // dodge in the open, before the pit
-        { do: "flyspike", r: 9, at: 34, fromRight: true, speed: 480 },   // a second spear up on the deck
-        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
-      ] };
+    const W = 28, g = G(W);
+    fill(g, 16, 0, 13, "#"); fill(g, 17, 0, 13, "^"); put(g, 15, 2, "S");   // ground up to the chasm
+    put(g, 16, 9, "v");                                                     // opener lie
+    fill(g, 17, 14, W - 1, "^");                                            // a spike chasm — fall and die
+    fill(g, 8, 17, W - 1, "#"); put(g, 7, 23, "E");                         // the high exit ledge (lift level)
+    return { name: "THE LIFT", bg: ["#0a0f12", "#04060a"], block: "#2f5060", manual: true, grid: S(g),
+      jumpCols: [8],
+      // a vertical platform: bottom sits level with the ground floor, top reaches the ledge. phase 1 = starts down;
+      // dwell pauses it at each end long enough to board / step off.
+      platforms: [{ c: 14, r: 8, w: 3, axis: "y", dist: 8, speed: 85, phase: 1, dwell: 1.6 }],
+      traps: [] };
   }
 
   // L8 — THE RISERS: the flat ground you just cleared ERUPTS in waves behind/under you. SIGNATURE: rising spikes.
@@ -236,22 +229,22 @@
       traps: [] };
   }
 
-  // L11 — CANNON GALLERY: a corridor raked by TWO offset cannons; a fake door tempts you off the safe line.
-  // SIGNATURE: thread the crossfire. OPENER: SAFE — first bite is the invisible pit at col 12.
+  // L11 — SAW GAUNTLET: two screaming blades patrol the corridor. The first has a kill-switch on the floor;
+  // the second does NOT — you jump it. SIGNATURE: switches and blades. OPENER: an invisible pit at col 9.
   function L11() {
-    const W = 54, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 12, "v"); fill(g, 16, 18, 20, "c");
-    const st = stair(g, 28); pit(g, 37, 53); fill(g, 10, 37, 52, "#");
-    put(g, 9, 51, "E");
-    return { name: "CANNON GALLERY", bg: ["#0c0710", "#05040a"], block: "#5a2a2a", manual: true, grid: S(g),
-      jumpCols: [11, ...st.launch],
-      fakeDoors: [{ c: 24, r: 15 }],
-      cannons: [
-        { c: 44, r: 9, dir: -1, period: 2.0, speed: 270, phase: 0.0, life: 1.5 },
-        { c: 49, r: 9, dir: -1, period: 2.0, speed: 255, phase: 1.0, life: 1.5 }, // offset → near-constant fire
+    const W = 50, g = G(W); ground(g, W); put(g, 15, 2, "S");
+    put(g, 16, 9, "v");
+    put(g, 15, W - 2, "E");
+    return { name: "SAW GAUNTLET", bg: ["#0c0710", "#05040a"], block: "#5a2a2a", manual: true, grid: S(g),
+      jumpCols: [8],
+      buttons: [{ c: 14, r: 15, group: "a" }],                       // kills the first blade
+      saws: [
+        { c0: 18, c1: 27, r: 15, speed: 210, group: "a" },          // switchable
+        { c0: 36, c1: 42, r: 15, speed: 150 },                      // NO switch — jump it or be sliced
       ],
       traps: [
-        { do: "drop", c: 16, r: 11, at: 14, floorR: 15 },
+        { do: "popspike", c: 12, r: 15, at: 11 },
+        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
       ] };
   }
 
@@ -269,20 +262,18 @@
       ] };
   }
 
-  // L13 — FREEFALL: you start UP on a deck and DROP to the ground (a ghost tile drops you early), cross, then
-  // climb back up. SIGNATURE: the only level that starts high and falls. OPENER: the deck itself betrays you.
+  // L13 — THE VICE: a sealed room where the walls, ceiling AND floor all grind inward at once. SIGNATURE: the
+  // play area shrinks from every side — climb the staircase to the exit before the box becomes a coffin.
   function L13() {
-    const W = 46, g = G(W); ground(g, W);
-    fill(g, 10, 0, 15, "#"); put(g, 9, 2, "S");
-    put(g, 10, 9, "v");
-    put(g, 16, 20, "v"); fill(g, 16, 24, 26, "c");
-    const st = stair(g, 30); pit(g, 39, 45); fill(g, 10, 39, 44, "#"); put(g, 9, 42, "E");
-    return { name: "FREEFALL", bg: ["#0a0a14", "#04040a"], block: "#2f2a55", manual: true, grid: S(g),
-      jumpCols: [8, 19, ...st.launch],
-      traps: [
-        { do: "popspike", c: 28, r: 15, at: 27 },
-        { do: "popspike", c: 36, r: 15, at: 35 },
-      ] };
+    const W = 24, g = G(W);
+    for (let r = 0; r < H; r++) { put(g, r, 0, "#"); put(g, r, W - 1, "#"); }   // sealed side walls
+    fill(g, 17, 0, W - 1, "#"); fill(g, 16, 1, 4, "#"); put(g, 15, 2, "S");      // floor + start ledge
+    const launch = climb(g, 5, 14, 4);                                          // ledges rows 14,12,10,8
+    put(g, 7, 18, "E");                                                         // exit atop the highest ledge
+    return { name: "THE VICE", bg: ["#0c0610", "#05040a"], block: "#45236a", manual: true, grid: S(g),
+      close: { at: 1.5, speed: 74, x0: 0, x1: W * 40, arena: true },            // close from ALL sides
+      jumpCols: [4, ...launch],
+      traps: [] };
   }
 
   // L14 — MINEFIELD: a single flat field where some tiles VANISH and others ERUPT — all invisible, all lethal,
@@ -320,20 +311,19 @@
 
   // L16 — PISTON ALLEY: a single corridor where the CEILING drops and the FLOOR erupts in alternation.
   // SIGNATURE: top-and-bottom hazards trading blows — no two consecutive hits the same. OPENER: a sky-spike at col 10.
+  // L16 — STEPPING STONES: a wide spike pit too far to jump. A metal slab ferries back and forth across it —
+  // board it, ride, step off before it carries you back. SIGNATURE: ride the moving box or fall.
   function L16() {
-    const W = 56, g = G(W); ground(g, W); put(g, 15, 2, "S");
+    const W = 30, g = G(W);
+    fill(g, 16, 0, 10, "#"); fill(g, 17, 0, 10, "^"); put(g, 15, 2, "S");
+    put(g, 16, 7, "v");                                  // opener lie
+    fill(g, 17, 11, 23, "^");                            // the chasm — no jumping it
+    fill(g, 16, 24, W - 1, "#"); fill(g, 17, 24, W - 1, "^");
     put(g, 15, W - 2, "E");
-    return { name: "PISTON ALLEY", bg: ["#0a0f0c", "#04060a"], block: "#2f5040", manual: true, grid: S(g),
-      jumpCols: [10, 16, 23, 30, 37, 44],
-      traps: [
-        { do: "drop", c: 10, r: 11, at: 8, floorR: 15 },
-        { do: "risefloor", c: 16, r: 15, at: 15 },
-        { do: "drop", c: 23, r: 11, at: 21, floorR: 15 },
-        { do: "risefloor", c: 30, r: 15, at: 29 },
-        { do: "drop", c: 37, r: 11, at: 35, floorR: 15 },
-        { do: "risefloor", c: 44, r: 15, at: 43 },
-        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
-      ] };
+    return { name: "STEPPING STONES", bg: ["#0a0c12", "#04060a"], block: "#2f3a60", manual: true, grid: S(g),
+      jumpCols: [6],
+      platforms: [{ c: 11, r: 16, w: 4, axis: "x", dist: 9, speed: 95, phase: 0, dwell: 1.5 }],
+      traps: [] };
   }
 
   // L17 — MEAT GRINDER: a long, dense ground gauntlet with a no-jump tunnel. SIGNATURE: relentless, no breathers.
@@ -385,23 +375,21 @@
       traps: [] };
   }
 
-  // L20 — THE RECKONING: the long finale, everything on three legs. SIGNATURE: a victory lap that wants you dead.
-  // OPENER: SAFE — first pit at col 10.
+  // L20 — THE RECKONING: the finale puts the new toys together — kill a saw with a switch, ride a lift over a
+  // chasm, dash a guarded ledge to the door. SIGNATURE: everything you learned, back to bite you.
   function L20() {
-    const W = 72, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 10, "v"); fill(g, 16, 19, 21, "c"); fill(g, 16, 25, 30, ">"); put(g, 16, 33, "v");
-    const st = stair(g, 36); pit(g, 45, 51); fill(g, 10, 45, 60, "#");
-    put(g, 10, 58, "v");
-    tunnel(g, 63, 67);
-    put(g, 15, W - 2, "E");
+    const W = 46, g = G(W);
+    fill(g, 16, 0, 17, "#"); fill(g, 17, 0, 17, "^"); put(g, 15, 2, "S");    // leg 1 — ground
+    put(g, 16, 7, "v");                                                      // opener lie
+    fill(g, 17, 18, 25, "^");                                                // the chasm
+    fill(g, 8, 21, W - 1, "#"); put(g, 7, 38, "E");                          // leg 3 — the exit ledge (lift level)
     return { name: "THE RECKONING", bg: ["#0c0608", "#05040a"], block: "#5a1530", manual: true, grid: S(g),
-      jumpCols: [9, 32, ...st.launch, 49, 57],
-      conveyors: [{ c0: 25, c1: 30, r: 16, dir: 1, speed: 185, at: 22 }],
-      fakeDoors: [{ c: 50, r: 9 }],
-      traps: [
-        { do: "drop", c: 14, r: 11, at: 12, floorR: 15 },
-        { do: "popspike", c: 54, r: 9, at: 53 }, { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
-      ] };
+      jumpCols: [6, 36],
+      buttons: [{ c: 9, r: 15, group: "s" }],                                // kill the blade...
+      saws: [{ c0: 11, c1: 16, r: 15, speed: 200, group: "s" }],            // ...or it carves leg 1
+      platforms: [{ c: 18, r: 8, w: 3, axis: "y", dist: 8, speed: 85, phase: 1, dwell: 1.6 }], // the lift over the chasm
+      traps: [{ do: "doorspike", c: 37, r: 7, at: 36 }],                     // a final sting at the door
+    };
   }
 
   window.LEVELS = [L1(), L2(), L3(), L4(), L5(), L6(), L7(), L8(), L9(), L10(),

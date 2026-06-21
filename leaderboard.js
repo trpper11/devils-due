@@ -24,6 +24,29 @@ window.LB = (function () {
   const LS_ID = "devilsdue.id";
   const TOTAL_LEVELS = (window.LEVELS && window.LEVELS.length) || 20;
 
+  // ---- integrity / anti-cheat ----
+  // Every score carries a signature over its fields. On read we DROP rows whose signature doesn't match or
+  // whose values are impossible (forged/tampered/bot entries), and we never re-publish them. It's a static
+  // site so this isn't unbreakable, but it stops casual tampering and bot spam from reaching the board.
+  const SALT = "dd:" + "a91f" + "Q7" + "_souls" + "3e";   // obfuscated; not secret, just a speed bump
+  function sig(s) {
+    const str = [s.id, (s.name || ""), s.level | 0, s.deaths | 0, Math.round(+s.time || 0), s.finished ? 1 : 0].join("|") + "|" + SALT;
+    let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36);
+  }
+  function plausible(s) {
+    if (!s || typeof s !== "object") return false;
+    const lv = s.level | 0, d = s.deaths | 0, t = +s.time || 0;
+    if (!(lv >= 1 && lv <= TOTAL_LEVELS)) return false;
+    if (d < 0 || d > 1e6) return false;
+    if (t < 0 || t > 3.6e5) return false;
+    if (s.finished && t > 0 && t < TOTAL_LEVELS * 0.8) return false;   // < 0.8s per level is physically impossible → bot/forge
+    const nm = s.name; if (typeof nm !== "string" || nm.length > 14) return false;
+    return true;
+  }
+  function valid(s) { return plausible(s) && s.sig === sig(s); }
+  const isBot = () => !!(window.__ddBot);   // set when the engine is driven headlessly (the verifier / any scripted bot)
+
   function lget(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }
   function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
@@ -97,19 +120,20 @@ window.LB = (function () {
       const r = await fetch(URL, { cache: "no-store" });
       if (!r.ok) throw new Error("bad status");
       const j = await r.json();
-      return Array.isArray(j) ? j : (j && Array.isArray(j.scores) ? j.scores : []);
+      const arr = Array.isArray(j) ? j : (j && Array.isArray(j.scores) ? j.scores : []);
+      return arr.filter(valid);                       // drop forged / impossible / unsigned rows on the way in
     } catch (e) { return null; }
   }
   async function fetchScores() {
     const remote = await fetchRemote();
-    const local = lget(LS_SCORES, []);
-    const merged = dedupe((remote || []).concat(local)).map(s => ({ ...s, points: points(s) }));
+    const local = lget(LS_SCORES, []).filter(valid);
+    const merged = dedupe((remote || []).concat(local)).filter(valid).map(s => ({ ...s, points: points(s) }));
     return sortScores(merged);
   }
 
   // ---- the current player's run ----
   let me = null, flushTimer = null, lastFlush = 0;
-  function stamp() { if (me) me.points = points(me); }
+  function stamp() { if (me) { me.points = points(me); me.sig = sig(me); } }   // re-sign whenever the run updates
   function saveLocal() {
     if (!me) return;
     stamp();
@@ -120,11 +144,11 @@ window.LB = (function () {
     if (!me) return false;
     lastFlush = Date.now();
     saveLocal();
-    if (!REMOTE_ON) return false;
+    if (!REMOTE_ON || isBot()) return false;        // headless/scripted runs never publish to the global board
     try {
       const remote = await fetchRemote();
       if (remote === null) return false;            // offline — local copy already saved
-      const merged = dedupe(remote.concat([me]));
+      const merged = dedupe(remote.concat([me])).filter(valid);   // write back only clean rows (purges any garbage in the store)
       const top = sortScores(merged).slice(0, 300);
       const r = await fetch(URL, { method: "PUT", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(top) });
       return r.ok;

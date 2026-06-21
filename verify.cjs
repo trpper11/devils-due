@@ -47,17 +47,35 @@ window.__memory = function(level){
     if(Due.deaths>lastDeaths){ lastDeaths=Due.deaths; dcols.push(pc); }
     if(Due.level!==level||Due.state==='won-anim'||Due.state==='win'){ return {ok:true,deaths:Due.deaths,jset:[...jset].sort((a,b)=>a-b)}; }
     const ex=Due.exitPx(); const dir = !ex?1 : (ex.x>p.x+4?1 : (ex.x<p.x-4?-1:0));
-    Due.press('right',dir>0); Due.press('left',dir<0);
+    // --- platform / pit-edge awareness (ride moving boxes & lifts; wait at edges; don't walk into voids) ---
+    const plats = Due.platforms?Due.platforms():[]; const footY=p.y+PH, fr0=Math.round(footY/T);
+    const solidGrid=(c,r)=>{ const ch=((lv.grid[r]||"")[c])||' '; return '#=<>~Jc'.indexOf(ch)>=0; };   // c=crumble is walkable; v/B are jumped via jumpCols
+    const onPlat = plats.find(pl=> p.x < pl.x+pl.w-2 && p.x+PW > pl.x+2 && Math.abs(pl.y-footY)<12);
+    const aheadC = pc + (dir||1);
+    const platAhead = plats.find(pl=> pl.x < (aheadC+1)*T && pl.x+pl.w > aheadC*T && pl.y>footY-14 && pl.y<footY+52);
+    const supportedAhead = solidGrid(aheadC,fr0)||solidGrid(aheadC,fr0+1)||!!platAhead;
+    // is walking off the edge a SAFE drop (solid ground below before any spikes) or a deadly void?
+    let safeDrop=false; for(let r=fr0+1;r<lv.grid.length && r<fr0+13;r++){ const ch=((lv.grid[r]||"")[aheadC])||' ';
+      if(ch==='^'||ch==='B'){break;} if('#=<>~Jc'.indexOf(ch)>=0){ safeDrop=true; break; } }   // land on ground/crumble = safe; spikes/bait = not
+    let hold=false;
+    if(p.onGround && dir!==0 && !jset.has(pc) && !safeDrop){   // safe drops (deck->ground) are fine; only wait over deadly voids
+      if(onPlat){ const farCol = Math.floor((dir>0 ? onPlat.x+onPlat.w+2 : onPlat.x-2)/T);
+        const groundPastFar = solidGrid(farCol,fr0) || solidGrid(farCol,fr0+1);
+        if(!groundPastFar) hold=true; }                    // ride the box centered; only walk off when real ground is past its leading edge
+      else if(!supportedAhead) hold=true;                  // at a pit edge, no platform yet: wait to board
+    }
+    Due.press('right',dir>0 && !hold); Due.press('left',dir<0 && !hold);
     if(jcool>0) jcool--;
-    if(p.onGround && jcool===0){
-      let want = (dir>=0 && jset.has(pc));
+    if(p.onGround && jcool===0 && !hold){
+      let want = jset.has(pc);
       const pcx=p.x+PW/2, pcy=p.y+PH/2;
-      for(const q of (Due.projectiles?Due.projectiles():[])){ const qx=q.x+q.w/2, dx=qx-pcx;
-        if(((q.vx<0&&dx>0&&dx<150)||(q.vx>0&&dx<0&&dx>-150)||Math.abs(dx)<70) && Math.abs((q.y+q.h/2)-pcy)<46){ want=true; break; } }
+      for(const q of (Due.projectiles?Due.projectiles():[])){ const qx=q.x+q.w/2, dx=qx-pcx;   // shots, javelins AND saws
+        if(((q.vx<0&&dx>0&&dx<160)||(q.vx>0&&dx<0&&dx>-160)||Math.abs(dx)<74) && Math.abs((q.y+q.h/2)-pcy)<52){ want=true; break; } }
       if(Math.abs(p.x-lastX)<0.4) stuck++; else stuck=0;
-      if(stuck>22){ want=true; stuck=0; }
+      if(stuck>26){ want=true; stuck=0; }
       if(want){ jhold=12; jcool=18; }   // ~200ms full-height jump
     }
+    if(hold) stuck=0;                    // waiting for a platform is not "stuck"
     lastX=p.x;
     if(jhold>0){ Due.press('jump',true); jhold--; } else Due.press('jump',false);
     Due.tick(2);

@@ -10,7 +10,7 @@
   const TILE = 40, BASE_ACROSS = 26;            // tiles across at zoom 1; the view adapts to window + user zoom
   let VW = BASE_ACROSS * TILE, VH = 480, cssW = 800, cssH = 480, userZoom = 0.92; // VW/VH = visible WORLD px
   const GRAVITY = 2400, MOVE = 250, JUMP = 700, ACCEL = 3300, AIR = 2400, FRICTION = 2600, MAX_FALL = 980;
-  const COYOTE = 0.10, JBUF = 0.12, DT = 1 / 120, PW = 24, PH = 26;
+  const COYOTE = 0.10, JBUF = 0.12, DT = 1 / 120, PW = 24, PH = 26, LAUNCH = 1080;   // LAUNCH = piston/jump-pad up-boost
 
   let canvas, ctx, renderScale = 1;
   let LV, grid, WC, WR, start, exitCell, li = 0, deaths = 0, TH = null;
@@ -34,6 +34,8 @@
   let traps = [], vanished = new Set(), crumbling = {}, baited = {}, conveyors = [], cannons = [], flyers = [], fakeDoors = [];
   let sysScroll = null, sysRise = null, sysClose = null;   // the three "world turns on you" systems
   let camForcedX = 0;
+  // new mechanics: rideable moving platforms/lifts, patrolling saws, wall buttons, button-revealed gate tiles
+  let platforms = [], saws = [], buttons = [], revealed = new Set();
 
   // ---------- audio ----------
   let actx = null;
@@ -117,7 +119,8 @@
     gdir = 1;
     sysScroll = LV.scroll ? { ...LV.scroll, on: false, x: 0 } : null;
     sysRise = LV.rise ? { ...LV.rise, on: false, h: 0 } : null;
-    sysClose = LV.close ? { ...LV.close, on: false, l: 0, r: 0 } : null;
+    sysClose = LV.close ? { ...LV.close, on: false, l: 0, r: 0, t: 0, b: 0 } : null;
+    initMovers();
     camForcedX = 0;
     // restore runaway door home if it moved last run
     if (LV._homeExit) exitCell = { ...LV._homeExit };
@@ -135,7 +138,8 @@
     flyers = []; gdir = 1;
     if (sysScroll) { sysScroll.on = false; sysScroll.x = 0; }
     if (sysRise) { sysRise.on = false; sysRise.h = 0; }
-    if (sysClose) { sysClose.on = false; sysClose.l = 0; sysClose.r = 0; }
+    if (sysClose) { sysClose.on = false; sysClose.l = 0; sysClose.r = 0; sysClose.t = 0; sysClose.b = 0; }
+    initMovers();
     if (LV._homeExit) exitCell = { ...LV._homeExit };
     camForcedX = 0;
     camX = camClamp(player.x + PW / 2 - VW / 2, WC * TILE, VW);
@@ -174,7 +178,8 @@
     const ch = grid[r][c];
     if (ch === "v") return !vanished.has(c + "," + r);
     if (ch === "c") return !(crumbling[c + "," + r] >= 0.30);   // crumbles a beat after you step
-    if (ch === "B") return true;
+    if (ch === "B" || ch === "J") return true;                  // J = launch pad (solid, flings you up on contact)
+    if (ch === "g") return revealed.has(c + "," + r);           // g = gate tile: void until a button reveals it
     if (ch === "#" || ch === "=" || ch === "<" || ch === ">" || ch === "~") return true;
     return false;
   }
@@ -287,6 +292,7 @@
       if (ch === "v" && !vanished.has(key)) { vanished.add(key); shake = Math.max(shake, 10); sBoom(); }
       else if (ch === "c") { if (!(key in crumbling)) { crumbling[key] = 0.0001; shake = Math.max(shake, 6); } }
       else if (ch === "B" && !(key in baited)) { baited[key] = 0.0001; shake = Math.max(shake, 12); sBoom(); }
+      else if (ch === "J" && gdir > 0) { player.vy = -LAUNCH; player.onGround = false; player.coyote = 0; shake = Math.max(shake, 8); beep(300, 0.12, "square", 0.06, 760); } // piston flings you up
       else if (ch === "~" || ch === ">" || ch === "<") {           // conveyor strip
         const z = conveyors.find(z => z.c0 <= c && c <= z.c1 && z.r === fr);
         if (z && z.on) conv = z || conv;
@@ -330,6 +336,47 @@
     }
   }
 
+  // ---------- moving platforms / lifts, saws, buttons ----------
+  // build runtime objects from level data. platform {c,r,w(tiles),axis'x'|'y',dist(tiles),speed,phase,at}
+  // saw {c0,c1,r,speed,phase,group,vert} ; button {c,r,group,reveal:[{c0,c1,r}]} ; gate tiles use char 'g'
+  function initMovers() {
+    platforms = (LV.platforms || []).map(p => { const span = (p.dist || 3) * TILE;
+      return { x0: p.c * TILE, y0: p.r * TILE, w: (p.w || 2) * TILE, h: p.h ? p.h * TILE : 16,
+        axis: p.axis || "x", span, speed: p.speed || 90, o: (p.phase || 0) * span, d: 1, dwell: p.dwell || 0, wait: 0,
+        at: p.at != null ? p.at : 0, on: !p.at }; });
+    saws = (LV.saws || []).map(s => { const span = (s.c1 - s.c0) * TILE;
+      return { x0: s.c0 * TILE, y0: s.r * TILE, vert: !!s.vert, span, speed: s.speed || 150, o: (s.phase || 0) * span, d: 1,
+        group: s.group || null, on: true, R: 17 }; });
+    buttons = (LV.buttons || []).map(b => ({ c: b.c, r: b.r, group: b.group || null, reveal: b.reveal || null, pressed: false }));
+    revealed = new Set();
+  }
+  function platRect(p) { return p.axis === "x" ? { x: p.x0 + p.o, y: p.y0, w: p.w, h: p.h, vx: p.d * p.speed, vy: 0 }
+    : { x: p.x0, y: p.y0 + p.o, w: p.w, h: p.h, vx: 0, vy: p.d * p.speed }; }
+  function updatePlatforms(dt) {
+    const p = px();
+    for (const m of platforms) { if (!m.on) { if (p >= m.at) m.on = true; else continue; }
+      if (m.wait > 0) { m.wait -= dt; continue; }       // dwelling at an end so you can board / step off
+      m.o += m.d * m.speed * dt;
+      if (m.o >= m.span) { m.o = m.span; m.d = -1; m.wait = m.dwell; }
+      else if (m.o <= 0) { m.o = 0; m.d = 1; m.wait = m.dwell; } }
+  }
+  function sawRect(s) { const cx = s.vert ? s.x0 : s.x0 + s.o, cy = s.vert ? s.y0 + s.o : s.y0;
+    return { x: cx + 2, y: cy + 2, w: TILE - 4, h: TILE - 4, cx: cx + TILE / 2, cy: cy + TILE / 2, vx: s.vert ? 0 : s.d * s.speed }; }
+  function updateSaws(dt) {
+    for (const s of saws) { if (!s.on) continue;
+      s.o += s.d * s.speed * dt; if (s.o >= s.span) { s.o = s.span; s.d = -1; } else if (s.o <= 0) { s.o = 0; s.d = 1; } }
+  }
+  function updateButtons() {
+    for (const b of buttons) { if (b.pressed) continue;
+      const bx = b.c * TILE, by = b.r * TILE;
+      if (player.x < bx + TILE && player.x + PW > bx && player.y < by + TILE && player.y + PH > by) {
+        b.pressed = true; shake = Math.max(shake, 10); beep(660, 0.1, "square", 0.06, 990);
+        if (b.group) for (const s of saws) if (s.group === b.group) s.on = false;          // kill the saws it controls
+        if (b.reveal) for (const z of b.reveal) for (let c = z.c0; c <= z.c1; c++) revealed.add(c + "," + z.r); // build the stairway/bridge
+      }
+    }
+  }
+
   // ---------- world systems ----------
   function updateSystems(dt) {
     const p = px();
@@ -338,18 +385,25 @@
     if (sysRise) { if (!sysRise.on && (p >= (sysRise.at || 0) || levelTime >= (sysRise.atTime ?? 1e9))) sysRise.on = true;
       if (sysRise.on) sysRise.h = Math.min((sysRise.max || WR) * TILE, sysRise.h + (sysRise.speed || 26) * dt); }
     if (sysClose) { if (!sysClose.on && p >= (sysClose.at || 0)) sysClose.on = true;
-      if (sysClose.on) { sysClose.l += (sysClose.speed || 60) * dt; sysClose.r += (sysClose.speed || 60) * dt; } }
+      if (sysClose.on) { const sp = (sysClose.speed || 60) * dt; sysClose.l += sp; sysClose.r += sp;
+        if (sysClose.arena) { sysClose.t += sp * 0.7; sysClose.b += sp * 0.7; } } }   // arena: also close top + bottom
+    updatePlatforms(dt); updateSaws(dt); updateButtons();
     for (const z of conveyors) { if (!z.on && p >= (z.at || 0)) z.on = true; }
   }
 
-  // movers exposed to collision: closing walls (solid + lethal inner faces) and any moving platforms
+  // movers exposed to collision: closing walls (lethal), shrinking-arena ceiling/floor (lethal), and rideable platforms
   function movers() {
     const out = [];
     if (sysClose && sysClose.on) {
       const lx = (sysClose.x0 != null ? sysClose.x0 : camX) + sysClose.l, rx = (sysClose.x1 != null ? sysClose.x1 : camX + VW) - sysClose.r;
       out.push({ x: lx - TILE, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: true, wall: "L", face: lx });   // touch the grinding spikes = death (not a harmless shove)
       out.push({ x: rx, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: true, wall: "R", face: rx });
+      if (sysClose.arena) {                                                                              // shrinking room: ceiling + floor close in too
+        out.push({ x: camX - 40, y: sysClose.t - TILE, w: VW + 80, h: TILE, vx: 0, kill: true, wall: "T", face: sysClose.t });
+        out.push({ x: camX - 40, y: WR * TILE - sysClose.b, w: VW + 80, h: TILE, vx: 0, kill: true, wall: "B", face: WR * TILE - sysClose.b });
+      }
     }
+    for (const m of platforms) if (m.on) out.push(platRect(m));   // rideable (kill:false by default)
     return out;
   }
 
@@ -367,8 +421,13 @@
     for (const d of fakeDoors) h.push({ x: d.c * TILE + 9, y: d.r * TILE + 5, w: TILE - 18, h: TILE - 6 });
     for (const z of cannons) for (const s of z.shots) h.push({ x: s.x - s.r + 2, y: s.y - s.r + 2, w: s.r * 2 - 4, h: s.r * 2 - 4 });
     if (sysRise && sysRise.on) h.push({ x: camX - 40, y: WR * TILE - sysRise.h, w: VW + 80, h: sysRise.h + 40 });
-    if (sysClose && sysClose.on) { for (const m of movers()) { if (m.wall === "L") h.push({ x: m.x + TILE - 6, y: 0, w: 8, h: WR * TILE });
-      else h.push({ x: m.x - 2, y: 0, w: 8, h: WR * TILE }); } }
+    for (const s of saws) if (s.on) { const r = sawRect(s); h.push({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }); }  // spinning blades
+    if (sysClose && sysClose.on) for (const m of movers()) {   // the spiked closing faces (walls + arena ceiling/floor)
+      if (m.wall === "L") h.push({ x: m.x + TILE - 6, y: 0, w: 8, h: WR * TILE });
+      else if (m.wall === "R") h.push({ x: m.x - 2, y: 0, w: 8, h: WR * TILE });
+      else if (m.wall === "T") h.push({ x: m.x, y: m.y + TILE - 6, w: m.w, h: 8 });
+      else if (m.wall === "B") h.push({ x: m.x, y: m.y - 2, w: m.w, h: 8 });
+    }
     return h;
   }
   const dropY = (t) => Math.min((t.floorR != null ? t.floorR : 9) * TILE, t.r * TILE + 1700 * t.t);
@@ -405,7 +464,7 @@
     const r0 = Math.max(0, Math.floor(camY / TILE) - 1), r1 = Math.min(WR - 1, Math.floor((camY + VH) / TILE) + 1);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) drawTile(grid[r][c], c, r);
 
-    drawCannons(); drawTrapsLive(); drawFlyers();
+    drawCannons(); drawTrapsLive(); drawFlyers(); drawMovers();
     if (assist.sense) for (const m of deathMarks) {   // "sixth sense": a faint skull where a trap got you before
       ctx.save(); ctx.globalAlpha = 0.45 + 0.2 * Math.sin(animTime * 3); ctx.fillStyle = "#ff5d6c"; ctx.font = "16px system-ui"; ctx.textAlign = "center";
       ctx.fillText("☠", m.x, m.y + 6); ctx.restore(); }
@@ -480,6 +539,8 @@
     else if (ch === "v") { if (!vanished.has(c + "," + r)) drawBlock(x, y); }
     else if (ch === "c") { const t = crumbling[c + "," + r] || 0; if (t < 0.30) { drawBlock(x, y); if (t > 0) { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#000"; ctx.beginPath(); ctx.moveTo(x + 6, y + 8); ctx.lineTo(x + 18, y + 26); ctx.lineTo(x + 30, y + 10); ctx.stroke(); ctx.restore(); } } }
     else if (ch === "B") { drawBlock(x, y); if (baited[c + "," + r] > 0.04) spikes(x, y - TILE, TILE, "up"); }
+    else if (ch === "J") drawBlock(x, y);                                      // launch pad — looks like solid ground until it flings you
+    else if (ch === "g") { if (revealed.has(c + "," + r)) drawBlock(x, y); }   // gate: invisible until a button reveals it
     else if (ch === "^") spikes(x, y, TILE, "up");
     else if (ch === "V") spikes(x, y, TILE, "down");
   }
@@ -574,6 +635,28 @@
       for (const s of z.shots) { ctx.fillStyle = "#ff7a18"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
         ctx.fillStyle = "rgba(255,200,80,.5)"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 3, 0, 7); ctx.fill(); } }
   }
+  function drawMovers() {
+    for (const m of platforms) if (m.on) { const r = platRect(m);   // a chunky metal platform
+      const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h); g.addColorStop(0, "#8a93a8"); g.addColorStop(1, "#3a4150");
+      ctx.fillStyle = g; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = "#cfd6e6"; ctx.fillRect(r.x, r.y, r.w, 2);
+      ctx.fillStyle = TH.accent || "#ffcf5c"; for (let i = 6; i < r.w - 6; i += 12) ctx.fillRect(r.x + i, r.y + r.h - 4, 6, 2); }
+    for (const s of saws) { const r = sawRect(s); const R = TILE / 2 - 2; const rot = animTime * 12 * (s.d || 1);
+      ctx.save(); ctx.translate(r.cx, r.cy); ctx.rotate(rot);
+      ctx.fillStyle = s.on ? "#dfe6f0" : "#5a606e"; ctx.beginPath();
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, a2 = (i + 0.5) / 12 * 6.283;
+        ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R); ctx.lineTo(Math.cos(a2) * (R - 6), Math.sin(a2) * (R - 6)); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = s.on ? "#ff5066" : "#2a2e38"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, 7); ctx.fill(); ctx.restore();
+      if (s.on) { ctx.fillStyle = "rgba(255,80,100,.25)"; ctx.beginPath(); ctx.arc(r.cx, r.cy, R + 4, 0, 7); ctx.fill(); } }
+    for (const b of buttons) { const x = b.c * TILE, y = b.r * TILE;   // big wall button
+      ctx.fillStyle = "#1a1320"; ctx.fillRect(x + 4, y + 6, TILE - 8, TILE - 10);
+      ctx.fillStyle = b.pressed ? "#37d36b" : "#ff4d5e";
+      ctx.beginPath(); ctx.arc(x + TILE / 2, y + TILE / 2, 11, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.arc(x + TILE / 2 - 3, y + TILE / 2 - 3, 3, 0, 7); ctx.fill();
+      if (!b.pressed) { ctx.globalAlpha = 0.4 + 0.3 * Math.sin(animTime * 6); ctx.strokeStyle = "#ff4d5e"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x + TILE / 2, y + TILE / 2, 15, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
+  }
   function drawSystems() {
     if (sysScroll && sysScroll.on) {                 // the trailing edge is death — draw a wall of red spikes
       const wx = camForcedX;
@@ -589,13 +672,13 @@
       ctx.fillStyle = g; ctx.fillRect(camX - 40, top, VW + 80, sysRise.h + 40);
       ctx.fillStyle = "rgba(255,220,120,.5)"; for (let i = 0; i < 10; i++) { const bx = camX + ((i * 97 + animTime * 30) % VW); ctx.beginPath(); ctx.arc(bx, top + 6 + Math.sin(animTime * 3 + i) * 4, 3, 0, 7); ctx.fill(); } }
     if (sysClose && sysClose.on) { for (const m of movers()) {
-      ctx.fillStyle = "#241526"; ctx.fillRect(m.x, 0, m.w, WR * TILE);
-      // spiked inner face
-      const fx = m.wall === "L" ? m.x + m.w : m.x; const dir = m.wall === "L" ? "right" : "left";
-      ctx.fillStyle = "#eef2f8"; for (let yy = 0; yy < WR * TILE; yy += 18) { ctx.beginPath();
-        if (dir === "right") { ctx.moveTo(fx, yy); ctx.lineTo(fx + 12, yy + 9); ctx.lineTo(fx, yy + 18); }
-        else { ctx.moveTo(fx, yy); ctx.lineTo(fx - 12, yy + 9); ctx.lineTo(fx, yy + 18); }
-        ctx.closePath(); ctx.fill(); } } }
+      if (!m.wall) continue;                                          // platforms are drawn in drawMovers, not here
+      ctx.fillStyle = "#241526"; ctx.fillRect(m.x, m.y, m.w, m.h);
+      ctx.fillStyle = "#eef2f8";
+      if (m.wall === "L" || m.wall === "R") { const fx = m.wall === "L" ? m.x + m.w : m.x, s = m.wall === "L" ? 1 : -1;
+        for (let yy = m.y; yy < m.y + m.h; yy += 18) { ctx.beginPath(); ctx.moveTo(fx, yy); ctx.lineTo(fx + s * 12, yy + 9); ctx.lineTo(fx, yy + 18); ctx.closePath(); ctx.fill(); } }
+      else { const fy = m.wall === "T" ? m.y + m.h : m.y, s = m.wall === "T" ? 1 : -1;   // arena ceiling / floor spikes
+        for (let xx = m.x; xx < m.x + m.w; xx += 18) { ctx.beginPath(); ctx.moveTo(xx, fy); ctx.lineTo(xx + 9, fy + s * 12); ctx.lineTo(xx + 18, fy); ctx.closePath(); ctx.fill(); } } } }
   }
   function drawDoor(x, y) {
     const dc = (TH && TH.door) || "#ffcf5c";
@@ -708,7 +791,11 @@
     exitPx() { return exitCell ? { x: exitCell.c * TILE, y: exitCell.r * TILE } : null; },
     worldPx() { return { w: WC * TILE, h: WR * TILE }; },
     projectiles() { const a = []; for (const f of flyers) a.push({ x: f.x, y: f.y, w: f.w, h: f.h, vx: f.vx });
-      for (const z of cannons) for (const s of z.shots) a.push({ x: s.x - s.r, y: s.y - s.r, w: s.r * 2, h: s.r * 2, vx: s.vx }); return a; },
+      for (const z of cannons) for (const s of z.shots) a.push({ x: s.x - s.r, y: s.y - s.r, w: s.r * 2, h: s.r * 2, vx: s.vx });
+      for (const s of saws) if (s.on) { const r = sawRect(s); a.push({ x: r.x, y: r.y, w: r.w, h: r.h, vx: r.vx }); }  // saws are dodgeable like shots
+      return a; },
+    platforms() { return platforms.filter(m => m.on).map(platRect); },   // {x,y,w,h,vx,vy} for the verifier's ride logic
+    buttons() { return buttons.map(b => ({ c: b.c, r: b.r, pressed: b.pressed })); },
     goto(i) { deaths = 0; loadLevel(i); },
     on(fn) { if (typeof fn === "function") cbs.push(fn); },
     setSkin(s) { skin = Object.assign({}, DEFAULT_SKIN, s || {}); },
@@ -717,7 +804,7 @@
     pause() { paused = true; },
     resume() { paused = false; last = 0; },                                                                  // un-pause WITHOUT resetting (board closed mid-run)
     start() { runT = 0; deaths = 0; setHud(); loadLevel(0); paused = false; last = 0; emit("start", {}); },  // begin a fresh run from level 1
-    setHeadless(v) { headless = v; if (!v) { last = 0; requestAnimationFrame(frame); } },
+    setHeadless(v) { headless = v; if (v) window.__ddBot = true; if (!v) { last = 0; requestAnimationFrame(frame); } },   // mark scripted/headless runs (the leaderboard refuses their scores)
     tick(n) { for (let i = 0; i < (n || 1); i++) step(DT); },   // advance physics deterministically (no rAF/real-time)
     setZoom(z) { setZoom(z); }, get zoom() { return userZoom; },
     press(k, v) { if (k === "left") keys.left = v; else if (k === "right") keys.right = v; else if (k === "jump") { if (v) { player.jumpBuf = JBUF; keys.jump = true; } else keys.jump = false; } },
