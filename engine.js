@@ -35,7 +35,7 @@
   let sysScroll = null, sysRise = null, sysClose = null;   // the three "world turns on you" systems
   let camForcedX = 0;
   // new mechanics: rideable moving platforms/lifts, patrolling saws, wall buttons, button-revealed gate tiles
-  let platforms = [], saws = [], buttons = [], revealed = new Set();
+  let platforms = [], saws = [], buttons = [], crushers = [], revealed = new Set();
 
   // ---------- audio ----------
   let actx = null;
@@ -348,6 +348,15 @@
       return { x0: s.c0 * TILE, y0: s.r * TILE, vert: !!s.vert, span, speed: s.speed || 150, o: (s.phase || 0) * span, d: 1,
         group: s.group || null, on: true, R: 17 }; });
     buttons = (LV.buttons || []).map(b => ({ c: b.c, r: b.r, group: b.group || null, reveal: b.reveal || null, pressed: false }));
+    // crushers: a heavy spiked head on a vertical rail. Slams DOWN to seal a low corridor (lethal), holds, then lifts.
+    // You wait at the mouth and dash under when it's parked up. {c,w,r0(top rail),r1(slam row),period parts,phase,at}
+    crushers = (LV.crushers || []).map(k => {
+      const downT = k.downT || 0.14, upT = k.upT || 0.16, botDwell = k.botDwell || 0.4, topDwell = k.topDwell || 1.2;
+      const r0 = k.r0 != null ? k.r0 : 12, r1 = k.r1 != null ? k.r1 : 15;
+      return { c: k.c, w: (k.w || 1) * TILE, x0: k.c * TILE, yTop: r0 * TILE, span: (r1 - r0) * TILE,
+        downT, upT, botDwell, topDwell, cyc: downT + upT + botDwell + topDwell,
+        t: (k.phase || 0), o: 0, danger: false, at: k.at != null ? k.at : null, on: k.at == null };
+    });
     revealed = new Set();
   }
   function platRect(p) { return p.axis === "x" ? { x: p.x0 + p.o, y: p.y0, w: p.w, h: p.h, vx: p.d * p.speed, vy: 0 }
@@ -376,6 +385,22 @@
       }
     }
   }
+  // crusher cycle: 0 = head parked up (corridor clear), 1 = head slammed to the floor (corridor sealed/lethal)
+  function crusherO(k) {
+    const u = ((k.t % k.cyc) + k.cyc) % k.cyc;
+    if (u < k.downT) return u / k.downT;                                          // slamming down (fast)
+    if (u < k.downT + k.botDwell) return 1;                                       // ground, held
+    if (u < k.downT + k.botDwell + k.upT) return 1 - (u - k.downT - k.botDwell) / k.upT;  // retracting up
+    return 0;                                                                     // parked up, held (your window)
+  }
+  function updateCrushers(dt) {
+    const p = px();
+    for (const k of crushers) {
+      if (!k.on) { if (k.at != null && p >= k.at) k.on = true; else continue; }
+      k.t += dt; const f = crusherO(k); k.o = f * k.span; k.danger = f > 0.15;    // anything but "parked up" threatens the lane
+    }
+  }
+  function crusherHead(k) { return { x: k.x0, y: k.yTop + k.o, w: k.w, h: TILE }; }
 
   // ---------- world systems ----------
   function updateSystems(dt) {
@@ -387,7 +412,7 @@
     if (sysClose) { if (!sysClose.on && p >= (sysClose.at || 0)) sysClose.on = true;
       if (sysClose.on) { const sp = (sysClose.speed || 60) * dt; sysClose.l += sp; sysClose.r += sp;
         if (sysClose.arena) { sysClose.t += sp * 0.7; sysClose.b += sp * 0.7; } } }   // arena: also close top + bottom
-    updatePlatforms(dt); updateSaws(dt); updateButtons();
+    updatePlatforms(dt); updateSaws(dt); updateButtons(); updateCrushers(dt);
     for (const z of conveyors) { if (!z.on && p >= (z.at || 0)) z.on = true; }
   }
 
@@ -422,6 +447,7 @@
     for (const z of cannons) for (const s of z.shots) h.push({ x: s.x - s.r + 2, y: s.y - s.r + 2, w: s.r * 2 - 4, h: s.r * 2 - 4 });
     if (sysRise && sysRise.on) h.push({ x: camX - 40, y: WR * TILE - sysRise.h, w: VW + 80, h: sysRise.h + 40 });
     for (const s of saws) if (s.on) { const r = sawRect(s); h.push({ x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }); }  // spinning blades
+    for (const k of crushers) if (k.on) { const r = crusherHead(k); h.push({ x: r.x + 2, y: r.y + 1, w: r.w - 4, h: r.h - 1 }); }  // stamping heads
     if (sysClose && sysClose.on) for (const m of movers()) {   // the spiked closing faces (walls + arena ceiling/floor)
       if (m.wall === "L") h.push({ x: m.x + TILE - 6, y: 0, w: 8, h: WR * TILE });
       else if (m.wall === "R") h.push({ x: m.x - 2, y: 0, w: 8, h: WR * TILE });
@@ -656,6 +682,12 @@
       ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.arc(x + TILE / 2 - 3, y + TILE / 2 - 3, 3, 0, 7); ctx.fill();
       if (!b.pressed) { ctx.globalAlpha = 0.4 + 0.3 * Math.sin(animTime * 6); ctx.strokeStyle = "#ff4d5e"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x + TILE / 2, y + TILE / 2, 15, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; } }
+    for (const k of crushers) { if (!k.on) continue; const x = k.x0, y = k.yTop + k.o;   // heavy spiked stamper on rails
+      ctx.fillStyle = "rgba(120,130,150,.22)"; ctx.fillRect(x + 3, k.yTop - TILE, 3, k.span + TILE); ctx.fillRect(x + k.w - 6, k.yTop - TILE, 3, k.span + TILE);
+      if (k.danger) { ctx.globalAlpha = .12; ctx.fillStyle = "#ff5066"; ctx.fillRect(x, y + TILE, k.w, k.span - k.o); ctx.globalAlpha = 1; }
+      const g = ctx.createLinearGradient(0, y, 0, y + TILE); g.addColorStop(0, "#7a8290"); g.addColorStop(1, "#2a2e38");
+      ctx.fillStyle = g; ctx.fillRect(x, y, k.w, TILE); ctx.fillStyle = "#cfd6e6"; ctx.fillRect(x, y, k.w, 3);
+      ctx.fillStyle = "#ff5066"; for (let sx = x + 3; sx < x + k.w - 3; sx += 11) { ctx.beginPath(); ctx.moveTo(sx, y + TILE); ctx.lineTo(sx + 5.5, y + TILE + 8); ctx.lineTo(sx + 11, y + TILE); ctx.closePath(); ctx.fill(); } }
   }
   function drawSystems() {
     if (sysScroll && sysScroll.on) {                 // the trailing edge is death — draw a wall of red spikes
@@ -796,6 +828,7 @@
       return a; },
     platforms() { return platforms.filter(m => m.on).map(platRect); },   // {x,y,w,h,vx,vy} for the verifier's ride logic
     buttons() { return buttons.map(b => ({ c: b.c, r: b.r, pressed: b.pressed })); },
+    crushers() { return crushers.filter(k => k.on).map(k => ({ c: k.c, w: k.w, danger: k.danger, o: k.span ? k.o / k.span : 0 })); },
     goto(i) { deaths = 0; loadLevel(i); },
     on(fn) { if (typeof fn === "function") cbs.push(fn); },
     setSkin(s) { skin = Object.assign({}, DEFAULT_SKIN, s || {}); },

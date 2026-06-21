@@ -9,8 +9,12 @@
   .bar{position:fixed;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:16px;align-items:center;
     font-size:13px;letter-spacing:.5px;background:rgba(8,6,12,.55);padding:6px 14px;border-radius:10px;backdrop-filter:blur(4px);z-index:5}
   .bar .nm{color:#ff5d6c;font-weight:700;letter-spacing:1px}.bar .s{color:#9aa0b0}
-  a.back{position:fixed;left:12px;top:12px;font-size:13px;color:#8a90a0;text-decoration:none;z-index:6;
-    background:rgba(8,6,12,.55);padding:6px 10px;border-radius:8px}a.back:hover{color:#ff5d6c}
+  a.back{position:fixed;left:12px;top:12px;font-size:14px;font-weight:700;letter-spacing:.5px;color:#ffcf5c;text-decoration:none;z-index:20;
+    background:rgba(22,13,20,.85);border:1px solid #3a2350;padding:8px 14px;border-radius:10px;display:flex;align-items:center;gap:6px;
+    -webkit-tap-highlight-color:transparent}a.back:hover{color:#fff;border-color:#ff5d6c;background:rgba(46,22,42,.92)}
+  #homebtn{position:fixed;right:12px;top:200px;z-index:20;width:42px;height:42px;border-radius:10px;border:1px solid #3a2350;
+    background:rgba(40,20,40,.7);color:#ffcf5c;font-size:20px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  #homebtn:hover{background:rgba(70,35,70,.8)}
   .hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:#6a7080;z-index:5;text-align:center;
     background:rgba(8,6,12,.5);padding:5px 12px;border-radius:8px}.hint b{color:#aab0c0}
   .zoom{position:fixed;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:6}
@@ -100,11 +104,12 @@
 </style></head>
 <body>
   <canvas id="game"></canvas>
-  <a class="back" href="index.html">‹ back</a>
+  <a class="back gohome" href="index.html">🏠 Home</a>
   <div class="bar"><span class="nm" id="hud-name">DEVIL'S DUE</span><span class="s" id="hud-l">LEVEL 1/20</span><span class="s" id="hud-d">DEATHS 0</span><span class="s coins" id="hud-coins">🪙 0</span></div>
   <div class="zoom"><button id="z-in" tabindex="-1" title="zoom in (+ / scroll)">+</button><button id="z-out" tabindex="-1" title="zoom out (− / scroll)">−</button></div>
   <button id="trophy" tabindex="-1" title="Leaderboard">🏆</button>
   <button id="shopbtn" tabindex="-1" title="Shop — skins &amp; upgrades">🛒</button>
+  <button id="homebtn" class="gohome" tabindex="-1" title="Quit to home screen">🏠</button>
   <div id="coin-toast"></div>
   <div class="hint"><b>← → / A D</b> move · <b>Space / ↑</b> jump · <b>R</b> restart · <b>+ − / scroll / pinch</b> zoom · <a href="elements.html" style="color:#ff5d6c;text-decoration:none">glossary</a></div>
   <div class="touch">
@@ -124,6 +129,7 @@
     <div class="row">
       <button class="btn" id="dd-start">PLAY →</button>
       <button class="btn ghost" id="dd-gate-lb">🏆 Leaderboard</button>
+      <a class="btn ghost gohome" id="dd-gate-home" href="index.html" style="text-decoration:none">🏠 Home</a>
     </div>
   </div>
 
@@ -348,6 +354,14 @@
     });
     shopBtn.onclick = openShop;
     shopBack.onclick = closeShop;
+
+    // ----- home / quit -----  works at the gate AND mid-run; mid-run it confirms so you don't rage-quit by accident
+    function goHome(e) {
+      if (e) e.preventDefault();
+      if (started && Due.state !== "win" && !confirm("Quit this run and go back to the home screen?")) return;
+      location.href = "index.html";
+    }
+    document.querySelectorAll(".gohome").forEach(el => el.addEventListener("click", goHome));
 
     // deep links from index.html
     if (/[?&]lb=1/.test(location.search)) openBoard("");

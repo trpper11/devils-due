@@ -276,19 +276,22 @@
       traps: [] };
   }
 
-  // L14 — MINEFIELD: a single flat field where some tiles VANISH and others ERUPT — all invisible, all lethal,
-  // every few steps. SIGNATURE: pure memory, no stairs, no decks — just a floor that hates you.
-  // OPENER: a genuine first-step gamble — the first hole is close (col 8) to set the tone.
+  // L14 — THE STAIRCASE: the head-banger. A long flight of narrow ledges DESCENDS into a spike void, then
+  // CLIMBS back out to a high exit. One missed step is a long fall onto the spikes — pure precision, the rage
+  // of losing the whole descent to a single twitch. SIGNATURE: vertical terrain over a bottomless spike pit.
   function L14() {
-    const W = 52, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 8, "v"); put(g, 16, 14, "B"); put(g, 16, 21, "v");
-    put(g, 16, 27, "B"); put(g, 16, 34, "v"); put(g, 16, 41, "B");
-    put(g, 15, W - 2, "E");
-    return { name: "MINEFIELD", bg: ["#0c0c08", "#05050a"], block: "#4a4520", manual: true, grid: S(g),
-      jumpCols: [7, 13, 20, 26, 33, 40],
-      traps: [
-        { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
-      ] };
+    const W = 54, g = G(W);
+    fill(g, 18, 0, W - 1, "^");                       // the void floor — any fall ends here
+    fill(g, 8, 0, 6, "#"); put(g, 7, 2, "S");          // high start ledge
+    fill(g, 10, 7, 13, "#"); put(g, 10, 10, "v");      // step DOWN — and the ledge hides an invisible hole
+    fill(g, 12, 14, 20, "#");                          // step DOWN
+    fill(g, 14, 21, 27, "#"); put(g, 14, 24, "v");     // step DOWN — another lie waits low
+    fill(g, 14, 30, 41, "#");                          // a void GAP (28-29) to clear, then the climb's base
+    const launch = climb(g, 42, 14, 3);                // climb UP: ledges rows 14,12,10 at cols 42,46,50
+    put(g, 9, 52, "E");                                // exit atop the highest ledge
+    return { name: "THE STAIRCASE", bg: ["#0a0c12", "#04060a"], block: "#2f3a60", manual: true, grid: S(g),
+      jumpCols: [9, 23, 27, 45, 49],
+      traps: [] };
   }
 
   // L15 — OUTRUN: the screen drags you forward AND javelins cross your path. SIGNATURE: speed + crossfire combined.
@@ -326,21 +329,22 @@
       traps: [] };
   }
 
-  // L17 — MEAT GRINDER: a long, dense ground gauntlet with a no-jump tunnel. SIGNATURE: relentless, no breathers.
-  // OPENER: SAFE-ish — first pit at col 9 (not a spike at your toes).
+  // L17 — PISTON ALLEY: heavy spiked stampers slam the corridor shut on a timer, then lift. Wait at the mouth,
+  // then sprint under the instant it rises — too patient and the next cycle traps you, too hasty and it flattens
+  // you. SIGNATURE: the rhythm gate; both patience AND haste are punished. OPENER: a bait block, not a pit.
   function L17() {
-    const W = 58, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 9, "v"); put(g, 16, 17, "v"); tunnel(g, 22, 27);
-    put(g, 16, 35, "v"); put(g, 16, 43, "v");
+    const W = 46, g = G(W); ground(g, W); put(g, 15, 2, "S");
+    put(g, 16, 11, "B");                              // first step bites differently: a bait block that erupts
+    fill(g, 12, 16, 20, "#");                         // a low ceiling over stamper #1 — you can't just jump it
+    fill(g, 12, 26, 30, "#");                         // ...and over stamper #2
     put(g, 15, W - 2, "E");
-    return { name: "MEAT GRINDER", bg: ["#100606", "#05040a"], block: "#4a1f1f", manual: true, grid: S(g),
-      jumpCols: [8, 16, 34, 42],
-      traps: [
-        { do: "popspike", c: 13, r: 15, at: 12 },
-        { do: "popspike", c: 31, r: 15, at: 30 },
-        { do: "popspike", c: 39, r: 15, at: 38 },
-        { do: "popspike", c: 47, r: 15, at: 46 }, { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
-      ] };
+    return { name: "PISTON ALLEY", bg: ["#100606", "#05040a"], block: "#4a1f1f", manual: true, grid: S(g),
+      jumpCols: [10],
+      crushers: [
+        { c: 18, r0: 13, r1: 15, topDwell: 1.4, phase: 0.0 },
+        { c: 28, r0: 13, r1: 15, topDwell: 1.4, phase: 0.9 },
+      ],
+      traps: [ { do: "doorspike", c: W - 3, r: 15, at: W - 5 } ] };
   }
 
   // L18 — DOUBLE CROSS: the door bolts twice, through a tunnel and the guns. SIGNATURE: the exit that runs away.
@@ -383,11 +387,13 @@
     put(g, 16, 7, "v");                                                      // opener lie
     fill(g, 17, 18, 25, "^");                                                // the chasm
     fill(g, 8, 21, W - 1, "#"); put(g, 7, 38, "E");                          // leg 3 — the exit ledge (lift level)
+    fill(g, 4, 28, 32, "#");                                                 // ceiling for the crusher guarding the door
     return { name: "THE RECKONING", bg: ["#0c0608", "#05040a"], block: "#5a1530", manual: true, grid: S(g),
       jumpCols: [6, 36],
       buttons: [{ c: 9, r: 15, group: "s" }],                                // kill the blade...
       saws: [{ c0: 11, c1: 16, r: 15, speed: 200, group: "s" }],            // ...or it carves leg 1
       platforms: [{ c: 18, r: 8, w: 3, axis: "y", dist: 8, speed: 85, phase: 1, dwell: 1.6 }], // the lift over the chasm
+      crushers: [{ c: 30, r0: 5, r1: 7, topDwell: 1.5, phase: 0.4 }],        // a stamper barring the final dash
       traps: [{ do: "doorspike", c: 37, r: 7, at: 36 }],                     // a final sting at the door
     };
   }

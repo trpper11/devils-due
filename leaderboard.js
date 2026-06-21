@@ -45,7 +45,10 @@ window.LB = (function () {
     return true;
   }
   function valid(s) { return plausible(s) && s.sig === sig(s); }
-  const isBot = () => !!(window.__ddBot);   // set when the engine is driven headlessly (the verifier / any scripted bot)
+  // never publish from a headless/scripted engine OR an automated (webdriver) browser — keeps the verifier and
+  // casual Playwright/Puppeteer/Selenium bots off the global board. (Static site + open DB can't be airtight,
+  // but this + signing + plausibility stops the realistic tampering: forged rows, bot spam, impossible scores.)
+  const isBot = () => !!(window.__ddBot || (typeof navigator !== "undefined" && navigator.webdriver));
 
   function lget(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }
   function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
