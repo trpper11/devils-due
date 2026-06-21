@@ -255,15 +255,15 @@
       ] };
   }
 
-  // L12 — THE SQUEEZE (FIXED, beatable): a wall of spikes grinds in from behind. Now FAIR — a slower wall, a
-  // real head-start, only two clean jumps. Keep moving and you live; dawdle and you're paste.
+  // L12 — THE SQUEEZE: a wall of grinding spikes chases from behind and KILLS on contact. It looms right on
+  // your heels the whole way — keep running and time the three jumps clean, and you live; hesitate and it eats you.
   function L12() {
     const W = 56, g = G(W); ground(g, W); put(g, 15, 2, "S");
-    put(g, 16, 14, "v"); put(g, 16, 34, "v");           // just two pits, well spaced
+    put(g, 16, 14, "v"); put(g, 16, 28, "v"); put(g, 16, 42, "v");  // three pits to clear WITHOUT breaking stride
     put(g, 15, W - 2, "E");
     return { name: "THE SQUEEZE", bg: ["#100610", "#05040a"], block: "#3a2350", manual: true, grid: S(g),
-      close: { at: 5, speed: 78, x0: 0, x1: 99999 },     // slower crusher + the player keeps a wide lead
-      jumpCols: [13, 33],
+      close: { at: 4, speed: 210, x0: 0, x1: 99999 },    // lethal + fast enough to stay on your heels (outrun it, don't dawdle)
+      jumpCols: [13, 27, 41],
       traps: [
         { do: "doorspike", c: W - 3, r: 15, at: W - 5 },
       ] };

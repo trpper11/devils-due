@@ -346,9 +346,9 @@
   function movers() {
     const out = [];
     if (sysClose && sysClose.on) {
-      const lx = (sysClose.x0 || camX) + sysClose.l, rx = (sysClose.x1 || camX + VW) - sysClose.r;
-      out.push({ x: lx - TILE, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: false, wall: "L", face: lx });
-      out.push({ x: rx, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: false, wall: "R", face: rx });
+      const lx = (sysClose.x0 != null ? sysClose.x0 : camX) + sysClose.l, rx = (sysClose.x1 != null ? sysClose.x1 : camX + VW) - sysClose.r;
+      out.push({ x: lx - TILE, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: true, wall: "L", face: lx });   // touch the grinding spikes = death (not a harmless shove)
+      out.push({ x: rx, y: 0, w: TILE, h: WR * TILE, vx: 0, kill: true, wall: "R", face: rx });
     }
     return out;
   }
